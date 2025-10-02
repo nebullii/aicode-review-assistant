@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { pool } = require('./config/database');
+const authRoutes = require('./routes/auth');
 require('dotenv').config();
 
 const app = express();
@@ -11,12 +12,13 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Health check with database
+// Mount auth routes
+app.use('/auth', authRoutes);
+
+// Health check
 app.get('/health', async (req, res) => {
   try {
-    // Test database connection
     const result = await pool.query('SELECT NOW()');
-    
     res.json({ 
       status: 'ok', 
       service: 'api-service',
@@ -33,7 +35,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Test endpoint to verify tables exist
+// Test endpoint
 app.get('/db/test', async (req, res) => {
   try {
     const result = await pool.query(`
