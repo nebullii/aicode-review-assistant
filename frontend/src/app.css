@@ -1,0 +1,14 @@
+/* Optional custom tweaks */
+body {
+  scroll-behavior: smooth; /* Smooth scrolling for anchor links */
+}
+
+/* Customize buttons if needed */
+.btn-primary:hover {
+  background-color: #4f46e5; /* Indigo-700 hover */
+}
+
+/* Mobile menu animations */
+#mobile-menu {
+  transition: max-height 0.3s ease-out;
+}
