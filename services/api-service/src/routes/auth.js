@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Step 1: Redirect user to GitHub OAuth
 router.get('/github', (req, res) => {
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&scope=user:email,read:user,repo`;
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&scope=user:email,read:user,repo&prompt=login`;
   res.redirect(githubAuthUrl);
 });
 
@@ -16,7 +16,7 @@ router.get('/github/callback', async (req, res) => {
   const { code } = req.query;
 
   if (!code) {
-    return res.status(400).json({ error: 'No code provided' });
+    return res.redirect('http://localhost:3001/?error=no_code');
   }
 
   try {
@@ -36,7 +36,7 @@ router.get('/github/callback', async (req, res) => {
     const accessToken = tokenResponse.data.access_token;
 
     if (!accessToken) {
-      return res.status(400).json({ error: 'Failed to get access token' });
+      return res.redirect('http://localhost:3001/?error=auth_failed');
     }
 
     // Get user info from GitHub
@@ -80,23 +80,12 @@ router.get('/github/callback', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // Return token and user info
-    res.json({
-      success: true,
-      token: token,
-      user: {
-        id: user.id,
-        github_username: user.github_username,
-        email: user.email,
-        avatar_url: user.avatar_url,
-      },
-    });
+    // Redirect to dashboard with token
+    res.redirect(`http://localhost:3001/dashboard?token=${token}`);
+    
   } catch (error) {
     console.error('GitHub OAuth error:', error.response?.data || error.message);
-    res.status(500).json({ 
-      error: 'Authentication failed',
-      details: error.message 
-    });
+    res.redirect('http://localhost:3001/?error=auth_failed');
   }
 });
 
