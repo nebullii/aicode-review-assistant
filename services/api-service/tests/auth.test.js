@@ -25,6 +25,7 @@ describe('Auth Endpoints', () => {
     expect(response.body).toHaveProperty('error');
   });
 
+
   test('GET /auth/me with invalid token should return 401', async () => {
     const response = await request(app)
       .get('/auth/me')

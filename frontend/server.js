@@ -4,17 +4,20 @@ const path = require('path');
 const app = express();
 const PORT = 3001;
 
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // Serve static files
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Landing page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.render('index');
 });
 
 // Dashboard page
 app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard.html'));
+  res.render('dashboard');
 });
 
 app.listen(PORT, () => {

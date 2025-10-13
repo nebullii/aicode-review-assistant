@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { pool } = require('./config/database');
 const authRoutes = require('./routes/auth');
+const repositoryRoutes = require('./routes/repositories');
 require('dotenv').config();
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 
 // Mount auth routes
 app.use('/auth', authRoutes);
+app.use('/api/repositories', repositoryRoutes);
 
 // Health check
 app.get('/health', async (req, res) => {
@@ -35,21 +37,18 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Test endpoint
-app.get('/db/test', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `);
-    
-    res.json({
-      tables: result.rows.map(row => row.table_name)
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'AI Code Review Assistant API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      auth: '/auth/github',
+      me: '/auth/me',
+      repositories: '/api/repositories'
+    }
+  });
 });
 
 app.listen(PORT, () => {
