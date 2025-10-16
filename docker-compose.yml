@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - For users, repos, config
+  postgres:
+    image: postgres:15-alpine
+    container_name: code-review-postgres
+    environment:
+      POSTGRES_DB: code_review
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: devpass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - code-review-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev -d code_review"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB - For analysis results
+  mongodb:
+    image: mongo:6
+    container_name: code-review-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dev
+      MONGO_INITDB_ROOT_PASSWORD: devpass123
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - code-review-net
+
+  # Redis - For caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: code-review-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - code-review-net
+
+# API Services
+  api-service:
+    build:
+      context: ./services/api-service
+      dockerfile: Dockerfile
+    container_name: code-review-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://dev:devpass123@postgres:5432/code_review
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - code-review-net
+    volumes:
+      - ./services/api-service:/app
+      - /app/node_modules
+
+  # Analysis Service
+  analysis-service:
+    build:
+      context: ./services/analysis-service
+      dockerfile: Dockerfile
+    container_name: code-review-analysis
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - MONGODB_URL=mongodb://dev:devpass123@mongodb:27017/
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - code-review-net
+    volumes:
+      - ./services/analysis-service:/app
+
+# Github Service
+  github-service:
+    build:
+      context: ./services/github-service
+      dockerfile: Dockerfile
+    container_name: code-review-github
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_URL=postgresql://dev:devpass123@postgres:5432/code_review
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - code-review-net
+    volumes:
+      - ./services/github-service:/app
+      - /app/node_modules
+
+  
+
+networks:
+  code-review-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
