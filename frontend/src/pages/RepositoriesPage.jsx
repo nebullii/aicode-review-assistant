@@ -25,6 +25,12 @@ const RepositoriesPage = () => {
   }
 
   const handleConnectRepo = async (repo) => {
+    // Validate required fields
+    if (!repo || !repo.github_id || !repo.name || !repo.full_name) {
+      setError('Invalid repository data. Missing required fields.')
+      return
+    }
+
     try {
       await repositoryAPI.connectRepository({
         github_id: repo.github_id,
@@ -36,7 +42,7 @@ const RepositoriesPage = () => {
       fetchRepositories()
     } catch (err) {
       console.error('Error connecting repository:', err)
-      alert('Failed to connect repository')
+      setError('Failed to connect repository. Please try again.')
     }
   }
 

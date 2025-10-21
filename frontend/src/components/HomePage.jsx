@@ -1,10 +1,14 @@
 import { useAuth } from '../contexts/AuthContext'
+import Header from './Header'
+import Footer from './Footer'
 
 const HomePage = () => {
   const { loginWithGitHub } = useAuth()
 
   return (
     <div className="bg-white">
+      <Header />
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto">
@@ -36,11 +40,42 @@ const HomePage = () => {
           </div>
         </div>
         <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2">
-          <div className="h-56 w-full bg-gradient-to-r from-primary-400 to-primary-600 sm:h-72 md:h-96 lg:w-full lg:h-full flex items-center justify-center">
-            <div className="text-white text-center">
-              <div className="text-6xl mb-4">🤖</div>
-              <h3 className="text-2xl font-bold">AI Code Analysis</h3>
-              <p className="text-lg opacity-90">Powered by Advanced AI</p>
+          <div className="h-56 w-full bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 sm:h-72 md:h-96 lg:w-full lg:h-full flex items-center justify-center p-8">
+            <div className="relative w-full max-w-md">
+              {/* Code Editor Mockup */}
+              <div className="bg-gray-900 rounded-lg shadow-2xl overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 border-b border-gray-700">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  </div>
+                  <span className="text-gray-400 text-sm ml-2">app.py</span>
+                </div>
+                <div className="p-4 font-mono text-sm">
+                  <div className="text-gray-500">1</div>
+                  <div className="text-purple-400">def <span className="text-blue-400">analyze_code</span>():</div>
+                  <div className="text-gray-500">2</div>
+                  <div className="ml-4 text-gray-300">result = <span className="text-green-400">"Clean"</span></div>
+                  <div className="text-gray-500">3</div>
+                  <div className="ml-4 text-purple-400">return <span className="text-gray-300">result</span></div>
+                  <div className="text-gray-500 mt-2">4</div>
+                  <div className="mt-2 p-2 bg-green-900/30 border-l-4 border-green-500 rounded">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-green-400 text-xs">Code quality: Excellent</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Floating badge */}
+              <div className="absolute -bottom-4 -right-4 bg-white rounded-full p-3 shadow-xl">
+                <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
@@ -50,7 +85,7 @@ const HomePage = () => {
       <div className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:text-center">
-            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">Features</h2>
+            <h2 className="text-base text-blue-600 font-semibold tracking-wide uppercase">Features</h2>
             <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Everything you need for better code
             </p>
@@ -62,7 +97,7 @@ const HomePage = () => {
           <div className="mt-10">
             <div className="space-y-10 md:space-y-0 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-10">
               <div className="relative">
-                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white">
+                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -74,7 +109,7 @@ const HomePage = () => {
               </div>
 
               <div className="relative">
-                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white">
+                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
@@ -86,7 +121,7 @@ const HomePage = () => {
               </div>
 
               <div className="relative">
-                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white">
+                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
@@ -98,7 +133,7 @@ const HomePage = () => {
               </div>
 
               <div className="relative">
-                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white">
+                <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
@@ -134,6 +169,8 @@ const HomePage = () => {
           </button>
         </div>
       </div>
+
+      <Footer />
     </div>
   )
 }

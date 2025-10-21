@@ -5,12 +5,15 @@ const SupportPage = () => {
     subject: '',
     message: '',
   })
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   const handleSubmit = (e) => {
     e.preventDefault()
     // Handle form submission
-    alert('Support request submitted! We will get back to you soon.')
+    setSubmitSuccess(true)
     setFormData({ subject: '', message: '' })
+    // Hide success message after 5 seconds
+    setTimeout(() => setSubmitSuccess(false), 5000)
   }
 
   const faqs = [
@@ -46,6 +49,13 @@ const SupportPage = () => {
         {/* Contact Form */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contact Support</h3>
+          {submitSuccess && (
+            <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-green-800 dark:text-green-400">
+                Support request submitted! We will get back to you soon.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

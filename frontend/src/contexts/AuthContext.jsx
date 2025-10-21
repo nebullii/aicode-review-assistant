@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const token = params.get('token')
-    
+
     if (token) {
       localStorage.setItem('auth_token', token)
       // Clean up URL
@@ -38,7 +38,8 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(false)
       }
     }
-  }, [location])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search])
 
   const fetchUserData = async () => {
     try {
@@ -57,6 +58,24 @@ export const AuthProvider = ({ children }) => {
     authAPI.loginWithGitHub()
   }
 
+  // Mock login function for LoginPage compatibility
+  const login = async (email, password) => {
+    // This is a mock implementation - returns error since only GitHub OAuth is supported
+    return {
+      success: false,
+      error: 'Please use GitHub OAuth to sign in'
+    }
+  }
+
+  // Mock signup function for SignupPage compatibility
+  const signup = async (formData) => {
+    // This is a mock implementation - returns error since only GitHub OAuth is supported
+    return {
+      success: false,
+      error: 'Please use GitHub OAuth to sign up'
+    }
+  }
+
   const logout = () => {
     authAPI.logout()
     setUser(null)
@@ -66,6 +85,8 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loginWithGitHub,
+    login,
+    signup,
     logout,
     isLoading
   }
