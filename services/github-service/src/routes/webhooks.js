@@ -161,14 +161,14 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
     if (action === 'opened' || action === 'synchronize') {
       // Check if analysis already exists
       const existingAnalysis = await pool.query(
-        'SELECT id FROM analyses WHERE repository_id = $1 AND pr_number = $2',
+        'SELECT id FROM analysis WHERE repository_id = $1 AND pr_number = $2',
         [repositoryId, pr.number]
       );
 
       if (existingAnalysis.rows.length === 0) {
         // Insert new analysis
         await pool.query(
-          `INSERT INTO analyses (repository_id, pr_number, pr_url, status, started_at)
+          `INSERT INTO analysis (repository_id, pr_number, pr_url, status, started_at)
            VALUES ($1, $2, $3, $4, NOW())`,
           [repositoryId, pr.number, pr.html_url, 'received']
         );
@@ -176,7 +176,7 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
       } else {
         // Update existing analysis
         await pool.query(
-          `UPDATE analyses
+          `UPDATE analysis
            SET status = $1, started_at = NOW()
            WHERE repository_id = $2 AND pr_number = $3`,
           ['received', repositoryId, pr.number]
