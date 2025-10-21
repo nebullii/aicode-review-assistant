@@ -107,32 +107,134 @@ router.post('/connect', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Repository already connected' });
     }
 
-    // Insert repository
+    // Get user's GitHub token
+    const userResult = await pool.query(
+      'SELECT github_token FROM users WHERE id = $1',
+      [req.user.user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const githubToken = userResult.rows[0].github_token;
+
+    // Register webhook with GitHub
+    let webhookId = null;
+    try {
+      const GITHUB_SERVICE_URL = process.env.GITHUB_SERVICE_URL || 'http://localhost:3002';
+      const webhookResponse = await axios.post(
+        `${GITHUB_SERVICE_URL}/webhooks/register`,
+        {
+          repository_full_name: full_name,
+          github_token: githubToken,
+        }
+      );
+      webhookId = webhookResponse.data.webhook_id;
+      console.log(`Webhook registered for ${full_name}: ${webhookId}`);
+    } catch (webhookError) {
+      console.error('Webhook registration failed:', webhookError.response?.data || webhookError.message);
+    }
+
+    // Insert repository with webhook_id
     const repoResult = await pool.query(
-      `INSERT INTO repositories (user_id, github_id, name, full_name, description, is_active)
-       VALUES ($1, $2, $3, $4, $5, true)
-       RETURNING id, github_id, name, full_name, is_active`,
-      [req.user.user_id, github_id, name, full_name, description]
+      `INSERT INTO repositories (user_id, github_id, name, full_name, description, is_active, webhook_id)
+       VALUES ($1, $2, $3, $4, $5, true, $6)
+       RETURNING id, github_id, name, full_name, is_active, webhook_id`,
+      [req.user.user_id, github_id, name, full_name, description, webhookId]
     );
 
     const repository = repoResult.rows[0];
 
     // Create default configuration
     await pool.query(
-      `INSERT INTO repository_config (repository_id, enable_security, enable_performance, enable_style, enable_redundancy, severity_threshold)
-       VALUES ($1, true, true, true, true, 'medium')`,
-      [repository.id]
+        'UPDATE repositories SET webhook_id = $1 WHERE id = $2',
+        [webhookId, repository.id]
     );
+    console.log(`✓ Webhook ID ${webhookId} saved to database for repo ${repository.id}`);
+
 
     res.json({
       success: true,
-      message: 'Repository connected successfully',
+      message: webhookId
+        ? 'Repository connected and webhook registered successfully'
+        : 'Repository connected successfully (webhook registration failed)',
       repository: repository,
+      webhook_registered: !!webhookId,
     });
   } catch (error) {
     console.error('Error connecting repository:', error);
     res.status(500).json({
       error: 'Failed to connect repository',
+      details: error.message,
+    });
+  }
+});
+
+// Disconnect a repository
+router.post('/disconnect', authenticateToken, async (req, res) => {
+  const { repository_id } = req.body;
+
+  if (!repository_id) {
+    return res.status(400).json({ error: 'Missing repository_id' });
+  }
+
+  try {
+    // Get repository details including webhook_id
+    const repoResult = await pool.query(
+      'SELECT id, full_name, webhook_id, user_id FROM repositories WHERE id = $1',
+      [repository_id]
+    );
+
+    if (repoResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    const repository = repoResult.rows[0];
+
+    // Verify user owns this repository
+    if (repository.user_id !== req.user.user_id) {
+      return res.status(403).json({ error: 'Not authorized to disconnect this repository' });
+    }
+
+    // Get user's GitHub token
+    const userResult = await pool.query(
+      'SELECT github_token FROM users WHERE id = $1',
+      [req.user.user_id]
+    );
+
+    const githubToken = userResult.rows[0]?.github_token;
+
+    // Delete webhook from GitHub if webhook_id exists
+    if (repository.webhook_id && githubToken) {
+      try {
+        const GITHUB_SERVICE_URL = process.env.GITHUB_SERVICE_URL || 'http://localhost:3002';
+        await axios.post(
+          `${GITHUB_SERVICE_URL}/webhooks/unregister`,
+          {
+            repository_full_name: repository.full_name,
+            webhook_id: repository.webhook_id,
+            github_token: githubToken,
+          }
+        );
+        console.log(`Webhook ${repository.webhook_id} deleted for ${repository.full_name}`);
+      } catch (webhookError) {
+        console.error('Failed to delete webhook:', webhookError.response?.data || webhookError.message);
+        // Continue with repository deletion even if webhook deletion fails
+      }
+    }
+
+    // Delete repository from database (cascade will delete related records)
+    await pool.query('DELETE FROM repositories WHERE id = $1', [repository_id]);
+
+    res.json({
+      success: true,
+      message: 'Repository disconnected successfully',
+    });
+  } catch (error) {
+    console.error('Error disconnecting repository:', error);
+    res.status(500).json({
+      error: 'Failed to disconnect repository',
       details: error.message,
     });
   }
