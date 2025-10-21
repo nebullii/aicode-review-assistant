@@ -157,6 +157,23 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
 
     const repositoryId = repoResult.rows[0].id;
 
+    // Log webhook event
+    await pool.query(
+      `INSERT INTO webhook_events (repository_id, event_type, action, pr_number, pr_title, pr_url, sender_username, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        repositoryId,
+        event,
+        action,
+        pr.number,
+        pr.title,
+        pr.html_url,
+        payload.sender.login,
+        JSON.stringify(payload)
+      ]
+    );
+    console.log(`✓ Webhook event logged: ${action} on PR #${pr.number}`);
+
     // Only log for opened and synchronize (new commits) events
     if (action === 'opened' || action === 'synchronize') {
       // Check if analysis already exists

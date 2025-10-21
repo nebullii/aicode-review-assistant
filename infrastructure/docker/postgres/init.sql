@@ -50,11 +50,28 @@ CREATE TABLE IF NOT EXISTS analyses (
   processing_time FLOAT
 );
 
+-- Create webhook_events table
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  repository_id UUID REFERENCES repositories(id) ON DELETE CASCADE,
+  event_type VARCHAR(50) NOT NULL,
+  action VARCHAR(50) NOT NULL,
+  pr_number INTEGER,
+  pr_title TEXT,
+  pr_url TEXT,
+  sender_username VARCHAR(255),
+  payload JSONB,
+  received_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
 CREATE INDEX IF NOT EXISTS idx_repositories_user_id ON repositories(user_id);
 CREATE INDEX IF NOT EXISTS idx_analyses_repository_id ON analyses(repository_id);
 CREATE INDEX IF NOT EXISTS idx_analyses_status ON analyses(status);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_repository_id ON webhook_events(repository_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_received_at ON webhook_events(received_at DESC);
 
 -- Insert test data (optional - for development)
 INSERT INTO users (github_id, github_username, email) 

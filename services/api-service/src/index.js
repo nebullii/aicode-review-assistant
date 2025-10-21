@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const { pool } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const repositoryRoutes = require('./routes/repositories');
+const webhookRoutes = require('./routes/webhooks');
 require('dotenv').config();
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.json());
 // Mount auth routes
 app.use('/auth', authRoutes);
 app.use('/api/repositories', repositoryRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Health check
 app.get('/health', async (req, res) => {
