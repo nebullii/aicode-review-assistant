@@ -10,6 +10,8 @@ import ReportsPage from './pages/ReportsPage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import SupportPage from './pages/SupportPage'
 import ProfilePage from './pages/ProfilePage'
+import CodeAnalysisTest from './pages/CodeAnalysisTest'
+
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -55,6 +57,7 @@ const AppRoutes = () => {
         <Route path="subscription" element={<SubscriptionPage />} />
         <Route path="support" element={<SupportPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="analysis" element={<CodeAnalysisTest />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
