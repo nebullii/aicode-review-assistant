@@ -171,6 +171,27 @@ router.post('/connect', authenticateToken, async (req, res) => {
   }
 });
 
+// Get count of connected repositories
+router.get('/count', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT COUNT(*) as count FROM repositories WHERE user_id = $1 AND is_active = true',
+      [req.user.user_id]
+    );
+
+    res.json({
+      success: true,
+      count: parseInt(result.rows[0].count, 10),
+    });
+  } catch (error) {
+    console.error('Error fetching repository count:', error);
+    res.status(500).json({
+      error: 'Failed to fetch repository count',
+      details: error.message,
+    });
+  }
+});
+
 // Disconnect a repository
 router.post('/disconnect', authenticateToken, async (req, res) => {
   const { repository_id } = req.body;
