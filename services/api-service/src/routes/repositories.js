@@ -1,26 +1,9 @@
 const express = require('express');
 const axios = require('axios');
-const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
 
 // Get user's GitHub repositories
 router.get('/', authenticateToken, async (req, res) => {
@@ -39,10 +22,15 @@ router.get('/', authenticateToken, async (req, res) => {
 
     // Get already connected repositories for this user
     const connectedRepos = await pool.query(
-      'SELECT github_id FROM repositories WHERE user_id = $1',
+      'SELECT id, github_id FROM repositories WHERE user_id = $1',
       [req.user.user_id]
     );
     const connectedGithubIds = connectedRepos.rows.map(r => r.github_id);
+    // Create a map of github_id to database UUID
+    const githubIdToDbId = {};
+    connectedRepos.rows.forEach(r => {
+      githubIdToDbId[r.github_id] = r.id;
+    });
 
     // Fetch repositories from GitHub API
     const response = await axios.get('https://api.github.com/user/repos', {
@@ -62,6 +50,7 @@ router.get('/', authenticateToken, async (req, res) => {
       .filter((repo) => !repo.archived && !repo.fork)
       .slice(0, 20)
       .map((repo) => ({
+        id: githubIdToDbId[repo.id] || null, // Database UUID (null if not connected)
         github_id: repo.id,
         name: repo.name,
         full_name: repo.full_name,
@@ -71,7 +60,7 @@ router.get('/', authenticateToken, async (req, res) => {
         language: repo.language || 'Unknown',
         stargazers_count: repo.stargazers_count,
         updated_at: repo.updated_at,
-        is_connected: connectedGithubIds.includes(repo.id), // Add this
+        is_connected: connectedGithubIds.includes(repo.id),
       }));
 
     res.json({

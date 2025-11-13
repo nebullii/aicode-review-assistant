@@ -16,3 +16,9 @@ google-api-core==2.15.0
 # Code analysis
 pygments==2.17.2
 tree-sitter==0.20.4
+
+# Style Analysis
+pylint==3.0.3
+pycodestyle==2.11.1
+mccabe==0.7.0
+autopep8==2.0.4

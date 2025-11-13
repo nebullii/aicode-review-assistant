@@ -17,6 +17,37 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
+  // Group issues by file
+  const groupByFile = () => {
+    const fileMap = {};
+
+    // Add vulnerabilities
+    if (analysis.vulnerabilities) {
+      analysis.vulnerabilities.forEach(vuln => {
+        const file = vuln.file_path || 'Unknown file';
+        if (!fileMap[file]) {
+          fileMap[file] = { vulnerabilities: [], styleIssues: [] };
+        }
+        fileMap[file].vulnerabilities.push(vuln);
+      });
+    }
+
+    // Add style issues
+    if (analysis.style_issues) {
+      analysis.style_issues.forEach(issue => {
+        const file = issue.file_path || 'Unknown file';
+        if (!fileMap[file]) {
+          fileMap[file] = { vulnerabilities: [], styleIssues: [] };
+        }
+        fileMap[file].styleIssues.push(issue);
+      });
+    }
+
+    return fileMap;
+  };
+
+  const fileGroups = groupByFile();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -70,111 +101,196 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
             </div>
           </div>
 
-          {/* Severity Breakdown */}
-          {analysis.severity_counts && (
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Severity Breakdown
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-                    {analysis.severity_counts.critical}
+          {/* Security & Style Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Severity Breakdown */}
+            {analysis.severity_counts && (
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Security Severity
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                      {analysis.severity_counts.critical}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Critical</div>
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Critical</div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                      {analysis.severity_counts.high}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">High</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                      {analysis.severity_counts.medium}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Medium</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                      {analysis.severity_counts.low}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Low</div>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                    {analysis.severity_counts.high}
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">High</div>
+              </div>
+            )}
+
+            {/* Style Categories */}
+            {analysis.style_categories && analysis.total_style_issues > 0 && (
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Style Issues ({analysis.total_style_issues})
+                </h3>
+                <div className="space-y-2">
+                  {analysis.style_categories.pep8 > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">PEP 8</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">{analysis.style_categories.pep8}</span>
+                    </div>
+                  )}
+                  {analysis.style_categories.pylint > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Code Quality</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">{analysis.style_categories.pylint}</span>
+                    </div>
+                  )}
+                  {analysis.style_categories.naming > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Naming</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">{analysis.style_categories.naming}</span>
+                    </div>
+                  )}
+                  {analysis.style_categories.complexity > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Complexity</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">{analysis.style_categories.complexity}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                    {analysis.severity_counts.medium}
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Medium</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                    {analysis.severity_counts.low}
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Low</div>
+              </div>
+            )}
+          </div>
+
+          {/* Error Message */}
+          {analysis.vulnerability_fetch_error && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-400">
+                    Unable to Load Analysis Details
+                  </p>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-500 mt-1">
+                    {analysis.vulnerability_fetch_error}
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Vulnerabilities List */}
-          {analysis.vulnerabilities && analysis.vulnerabilities.length > 0 ? (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Detected Vulnerabilities ({analysis.vulnerabilities.length})
-              </h3>
-              <div className="space-y-4">
-                {analysis.vulnerabilities.map((vuln, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded ${getSeverityColor(vuln.severity)}`}>
-                            {vuln.severity}
+          {/* Files with Comments */}
+          {Object.keys(fileGroups).length > 0 ? (
+            <div className="space-y-6">
+              {Object.entries(fileGroups).map(([fileName, issues]) => (
+                <div key={fileName} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  {/* File Header */}
+                  <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white font-mono">
+                        {fileName}
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        {issues.vulnerabilities.length > 0 && (
+                          <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">
+                            {issues.vulnerabilities.length} Security
                           </span>
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {vuln.type?.replace(/_/g, ' ').toUpperCase() || 'Unknown'}
+                        )}
+                        {issues.styleIssues.length > 0 && (
+                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">
+                            {issues.styleIssues.length} Style
                           </span>
-                        </div>
-                        {vuln.file_path && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                            File: {vuln.file_path} {vuln.line_number && `(Line ${vuln.line_number})`}
-                          </div>
                         )}
                       </div>
-                      {vuln.confidence && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          Confidence: {Math.round(vuln.confidence * 100)}%
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Description:
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {vuln.description}
-                        </div>
-                      </div>
-
-                      {vuln.code_snippet && (
-                        <div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Code:
-                          </div>
-                          <pre className="bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-x-auto">
-                            <code>{vuln.code_snippet}</code>
-                          </pre>
-                        </div>
-                      )}
-
-                      {vuln.recommendation && (
-                        <div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Recommendation:
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {vuln.recommendation}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Comments */}
+                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {/* Security Vulnerabilities */}
+                    {issues.vulnerabilities.map((vuln, idx) => (
+                      <div key={`vuln-${idx}`} className="p-4 bg-white dark:bg-gray-800">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0">
+                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getSeverityColor(vuln.severity)}`}>
+                              {vuln.severity?.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                              {vuln.type?.replace(/_/g, ' ').toUpperCase() || 'Security Issue'}
+                              {vuln.line_number && (
+                                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                  Line {vuln.line_number}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              <strong>Description:</strong> {vuln.description}
+                            </div>
+                            {vuln.code_snippet && (
+                              <pre className="bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto mb-2">
+                                <code>{vuln.code_snippet}</code>
+                              </pre>
+                            )}
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Recommendation:</strong> {vuln.recommendation}
+                            </div>
+                            {vuln.confidence && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Confidence: {Math.round(vuln.confidence * 100)}%
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Style Issues */}
+                    {issues.styleIssues.map((issue, idx) => (
+                      <div key={`style-${idx}`} className="p-4 bg-white dark:bg-gray-800">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0">
+                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getSeverityColor(issue.severity)}`}>
+                              {issue.severity?.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                              {issue.category?.toUpperCase()}: {issue.code}
+                              {issue.line && (
+                                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                  Line {issue.line}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              <strong>Issue:</strong> {issue.message}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Recommendation:</strong> {issue.recommendation}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-12 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -182,10 +298,10 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <h3 className="text-lg font-medium text-green-900 dark:text-green-100">
-                No Vulnerabilities Found
+                No Issues Found
               </h3>
               <p className="text-green-700 dark:text-green-300 mt-2">
-                Great job! This PR passed the security analysis.
+                Great job! This PR passed all security and style checks.
               </p>
             </div>
           )}

@@ -1,31 +1,26 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const axios = require('axios');
+const { authenticateToken } = require('../middleware/auth');
+const { DEFAULT_SEVERITY_COUNTS, DEFAULT_STYLE_CATEGORIES } = require('../constants/defaults');
 
 const router = express.Router();
-
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
 
 // Get all PR analysis reports for the authenticated user
 router.get('/pr-analyses', authenticateToken, async (req, res) => {
   try {
     const { repository_id, status, limit = 50, offset = 0 } = req.query;
+
+    // Validate repository_id is a valid UUID format if provided
+    if (repository_id) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(repository_id)) {
+        return res.status(400).json({
+          error: 'Invalid repository ID format',
+          details: 'Repository ID must be a valid UUID'
+        });
+      }
+    }
 
     // Build dynamic query
     let query = `
@@ -140,24 +135,33 @@ router.get('/pr-analyses/:analysisId', authenticateToken, async (req, res) => {
 
     try {
       const vulnerabilitiesResponse = await axios.get(
-        `${ANALYSIS_SERVICE_URL}/api/analysis/pr/${analysis.repository_name}/${analysis.pr_number}`
+        `${ANALYSIS_SERVICE_URL}/api/analysis/pr/${analysis.pr_number}`,
+        {
+          params: {
+            repository: analysis.repository_name
+          }
+        }
       );
 
       analysis.vulnerabilities = vulnerabilitiesResponse.data.vulnerabilities || [];
-      analysis.severity_counts = vulnerabilitiesResponse.data.severity_counts || {
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0
-      };
+      analysis.style_issues = vulnerabilitiesResponse.data.style_issues || [];
+      analysis.severity_counts = vulnerabilitiesResponse.data.severity_counts || DEFAULT_SEVERITY_COUNTS;
+      analysis.style_categories = vulnerabilitiesResponse.data.style_categories || DEFAULT_STYLE_CATEGORIES;
       analysis.total_vulnerabilities = vulnerabilitiesResponse.data.total_vulnerabilities || 0;
+      analysis.total_style_issues = vulnerabilitiesResponse.data.total_style_issues || 0;
+      analysis.files_analyzed = vulnerabilitiesResponse.data.files_analyzed || 0;
     } catch (mongoError) {
       console.error('Failed to fetch vulnerabilities from MongoDB:', mongoError.message);
+      console.error('Request URL:', `${ANALYSIS_SERVICE_URL}/api/analysis/pr/${analysis.pr_number}?repository=${analysis.repository_name}`);
+      console.error('Full error:', mongoError.response?.data || mongoError);
       // Return analysis without vulnerability details if MongoDB fetch fails
       analysis.vulnerabilities = [];
-      analysis.severity_counts = { critical: 0, high: 0, medium: 0, low: 0 };
+      analysis.style_issues = [];
+      analysis.severity_counts = DEFAULT_SEVERITY_COUNTS;
+      analysis.style_categories = DEFAULT_STYLE_CATEGORIES;
       analysis.total_vulnerabilities = 0;
-      analysis.vulnerability_fetch_error = 'Could not retrieve vulnerability details';
+      analysis.total_style_issues = 0;
+      analysis.vulnerability_fetch_error = `Could not retrieve vulnerability details: ${mongoError.message}`;
     }
 
     res.json({
@@ -176,49 +180,28 @@ router.get('/pr-analyses/:analysisId', authenticateToken, async (req, res) => {
 // Get summary statistics for reports dashboard
 router.get('/summary', authenticateToken, async (req, res) => {
   try {
-    // Get total analyses count
-    const totalResult = await pool.query(
-      `SELECT COUNT(*) as total
+    // Get all summary statistics in a single query using conditional aggregation
+    const result = await pool.query(
+      `SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE a.status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE a.status = 'failed') as failed,
+        COUNT(*) FILTER (WHERE a.started_at >= NOW() - INTERVAL '7 days') as recent
        FROM analysis a
        JOIN repositories r ON a.repository_id = r.id
        WHERE r.user_id = $1`,
       [req.user.user_id]
     );
 
-    // Get completed analyses count
-    const completedResult = await pool.query(
-      `SELECT COUNT(*) as completed
-       FROM analysis a
-       JOIN repositories r ON a.repository_id = r.id
-       WHERE r.user_id = $1 AND a.status = 'completed'`,
-      [req.user.user_id]
-    );
-
-    // Get failed analyses count
-    const failedResult = await pool.query(
-      `SELECT COUNT(*) as failed
-       FROM analysis a
-       JOIN repositories r ON a.repository_id = r.id
-       WHERE r.user_id = $1 AND a.status = 'failed'`,
-      [req.user.user_id]
-    );
-
-    // Get recent analyses (last 7 days)
-    const recentResult = await pool.query(
-      `SELECT COUNT(*) as recent
-       FROM analysis a
-       JOIN repositories r ON a.repository_id = r.id
-       WHERE r.user_id = $1 AND a.started_at >= NOW() - INTERVAL '7 days'`,
-      [req.user.user_id]
-    );
+    const summary = result.rows[0];
 
     res.json({
       success: true,
       summary: {
-        total_analyses: parseInt(totalResult.rows[0].total),
-        completed: parseInt(completedResult.rows[0].completed),
-        failed: parseInt(failedResult.rows[0].failed),
-        recent_7_days: parseInt(recentResult.rows[0].recent)
+        total_analyses: parseInt(summary.total),
+        completed: parseInt(summary.completed),
+        failed: parseInt(summary.failed),
+        recent_7_days: parseInt(summary.recent)
       }
     });
   } catch (error) {

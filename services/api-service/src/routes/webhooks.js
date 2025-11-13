@@ -1,25 +1,8 @@
 const express = require('express');
 const { pool } = require('../config/database');
-const jwt = require('jsonwebtoken');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
 
 // Get recent webhook events for user's repositories
 router.get('/events', authenticateToken, async (req, res) => {

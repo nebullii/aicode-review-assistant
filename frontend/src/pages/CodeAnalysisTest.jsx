@@ -20,6 +20,20 @@ document.getElementById("output").innerHTML = userInput;`,
     hardcodedCredentials: `const apiKey = "sk-1234567890abcdef";
 const password = "admin123";
 const dbConnection = "mongodb://admin:password@localhost:27017";`,
+    pythonStyleIssues: `# Python code with style issues
+import os,sys
+
+class myClass:  # Should be MyClass
+    def CalculateTotal(self, items):  # Should be calculate_total
+        total=0
+        for item in items:
+            if item>0:
+                    total+=item
+        return total
+
+API_KEY = "hardcoded-api-key-12345"
+user_input = input("Enter data: ")
+exec(user_input)  # Security vulnerability`,
   };
 
   // Check service health on mount
@@ -110,7 +124,7 @@ const dbConnection = "mongodb://admin:password@localhost:27017";`,
             Code Analysis Testing
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Test SCRUM-87, 97, 99 - AI Security Vulnerability Detection
+            AI Security Vulnerability Detection
           </p>
         </div>
         
@@ -154,6 +168,15 @@ const dbConnection = "mongodb://admin:password@localhost:27017";`,
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
             Hardcoded Credentials
+          </button>
+          <button
+            onClick={() => {
+              loadExample(examples.pythonStyleIssues);
+              setLanguage('python');
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Python Style + Security
           </button>
         </div>
       </div>
@@ -240,67 +263,137 @@ const dbConnection = "mongodb://admin:password@localhost:27017";`,
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               Analysis Results
             </h2>
-            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-              <span>Analysis ID: {result.analysis_id}</span>
-              <span>•</span>
-              <span>Total Vulnerabilities: {result.total_vulnerabilities}</span>
-              <span>•</span>
-              <span className="flex items-center gap-2">
-                <span className="text-red-600">🔴 {result.critical_count}</span>
-                <span className="text-orange-600">🟠 {result.high_count}</span>
-                <span className="text-yellow-600">🟡 {result.medium_count}</span>
-                <span className="text-blue-600">🔵 {result.low_count}</span>
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                <span>Analysis ID: {result.analysis_id}</span>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                <span>Security: {result.total_vulnerabilities} vulnerabilities</span>
+                <span>•</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-red-600">🔴 {result.critical_count}</span>
+                  <span className="text-orange-600">🟠 {result.high_count}</span>
+                  <span className="text-yellow-600">🟡 {result.medium_count}</span>
+                  <span className="text-blue-600">🔵 {result.low_count}</span>
+                </span>
+              </div>
+              {result.total_style_issues > 0 && (
+                <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                  <span>Style: {result.total_style_issues} issues</span>
+                  {result.style_categories && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-2">
+                        {result.style_categories.pep8 > 0 && <span>PEP8: {result.style_categories.pep8}</span>}
+                        {result.style_categories.pylint > 0 && <span>Quality: {result.style_categories.pylint}</span>}
+                        {result.style_categories.naming > 0 && <span>Naming: {result.style_categories.naming}</span>}
+                        {result.style_categories.complexity > 0 && <span>Complexity: {result.style_categories.complexity}</span>}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {result.vulnerabilities.length === 0 ? (
+          {/* Security Vulnerabilities Section */}
+          {result.vulnerabilities.length === 0 && (!result.style_issues || result.style_issues.length === 0) ? (
             <div className="text-center py-8">
               <span className="text-6xl mb-4 block">✅</span>
               <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No Vulnerabilities Detected!
+                No Issues Detected!
               </p>
               <p className="text-gray-600 dark:text-gray-400">
-                Your code looks secure.
+                Your code looks secure and follows best practices.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {result.vulnerabilities.map((vuln, index) => (
-                <div
-                  key={index}
-                  className={`border-l-4 rounded-lg p-4 ${getSeverityColor(vuln.severity)}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">{getSeverityIcon(vuln.severity)}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold uppercase">{vuln.severity}</span>
-                        <span>•</span>
-                        <span className="font-medium">{vuln.type.replace(/_/g, ' ').toUpperCase()}</span>
-                        <span>•</span>
-                        <span className="text-sm">Line {vuln.line_number}</span>
-                        <span>•</span>
-                        <span className="text-sm">Confidence: {(vuln.confidence * 100).toFixed(0)}%</span>
-                      </div>
-                      
-                      <p className="text-sm mb-2">
-                        <strong>Description:</strong> {vuln.description}
-                      </p>
-                      
-                      {vuln.code_snippet && (
-                        <div className="bg-white/50 dark:bg-gray-900/50 rounded p-2 mb-2">
-                          <code className="text-xs font-mono">{vuln.code_snippet}</code>
+            <div className="space-y-6">
+              {/* Security Vulnerabilities */}
+              {result.vulnerabilities.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    Security Vulnerabilities
+                  </h3>
+                  <div className="space-y-4">
+                    {result.vulnerabilities.map((vuln, index) => (
+                      <div
+                        key={index}
+                        className={`border-l-4 rounded-lg p-4 ${getSeverityColor(vuln.severity)}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">{getSeverityIcon(vuln.severity)}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-bold uppercase">{vuln.severity}</span>
+                              <span>•</span>
+                              <span className="font-medium">{vuln.type.replace(/_/g, ' ').toUpperCase()}</span>
+                              <span>•</span>
+                              <span className="text-sm">Line {vuln.line_number}</span>
+                              <span>•</span>
+                              <span className="text-sm">Confidence: {(vuln.confidence * 100).toFixed(0)}%</span>
+                            </div>
+
+                            <p className="text-sm mb-2">
+                              <strong>Description:</strong> {vuln.description}
+                            </p>
+
+                            {vuln.code_snippet && (
+                              <div className="bg-white/50 dark:bg-gray-900/50 rounded p-2 mb-2">
+                                <code className="text-xs font-mono">{vuln.code_snippet}</code>
+                              </div>
+                            )}
+
+                            <p className="text-sm">
+                              <strong>Recommendation:</strong> {vuln.recommendation}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                      
-                      <p className="text-sm">
-                        <strong>✅ Recommendation:</strong> {vuln.recommendation}
-                      </p>
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Style Issues */}
+              {result.style_issues && result.style_issues.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    Style Issues
+                  </h3>
+                  <div className="space-y-4">
+                    {result.style_issues.map((issue, index) => (
+                      <div
+                        key={index}
+                        className={`border-l-4 rounded-lg p-4 ${getSeverityColor(issue.severity)}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">📋</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-bold uppercase">{issue.severity}</span>
+                              <span>•</span>
+                              <span className="font-medium">{issue.category.toUpperCase()}</span>
+                              <span>•</span>
+                              <span className="text-sm">Code: {issue.code}</span>
+                              <span>•</span>
+                              <span className="text-sm">Line {issue.line}</span>
+                            </div>
+
+                            <p className="text-sm mb-2">
+                              <strong>Issue:</strong> {issue.message}
+                            </p>
+
+                            <p className="text-sm">
+                              <strong>Recommendation:</strong> {issue.recommendation}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

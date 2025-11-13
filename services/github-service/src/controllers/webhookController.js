@@ -2,6 +2,7 @@ const prService = require('../services/prService');
 const analysisClient = require('../services/analysisClient');
 const githubCommentService = require('../services/githubCommentService');
 const commentFormatter = require('../utils/commentFormatter');
+const notificationService = require('../services/notificationService');
 
 class WebhookController {
   /**
@@ -34,6 +35,10 @@ class WebhookController {
         return;
       }
 
+      // Track all analysis results for email notification
+      const allVulnerabilities = [];
+      const allStyleIssues = [];
+
       // Step 2: Analyze each Python file
       for (const file of pythonFiles) {
         console.log(`\n[FILE] Processing: ${file.filename}`);
@@ -50,7 +55,40 @@ class WebhookController {
             repository.full_name
           );
 
-          // Step 3: Post summary comment
+          // Step 3: Post security findings FIRST (if any)
+          if (analysisResult.vulnerabilities && analysisResult.vulnerabilities.length > 0) {
+            // Add to aggregated list for email notification
+            analysisResult.vulnerabilities.forEach(vuln => {
+              allVulnerabilities.push({
+                ...vuln,
+                file_path: file.filename
+              });
+            });
+
+            // Post ONE batched comment for all security issues in this file
+            try {
+              const batchedComment = commentFormatter.formatBatchedSecurityComment(
+                analysisResult.vulnerabilities,
+                file.filename
+              );
+
+              if (batchedComment) {
+                await githubCommentService.postSummaryComment(
+                  repository.owner.login,
+                  repository.name,
+                  pr.number,
+                  batchedComment,
+                  githubToken
+                );
+
+                console.log(`  [SECURITY] Posted batched security comment (${analysisResult.vulnerabilities.length} issues)`);
+              }
+            } catch (error) {
+              console.error(`  [WARN] Failed to post batched security comment:`, error.message);
+            }
+          }
+
+          // Step 4: Post summary comment AFTER security findings
           const summaryComment = commentFormatter.formatSummaryComment(
             file.filename,
             analysisResult
@@ -66,28 +104,57 @@ class WebhookController {
 
           console.log(`[SUCCESS] Posted summary comment for ${file.filename}`);
 
-          // Step 4: Post inline comments for each vulnerability
-          if (analysisResult.vulnerabilities && analysisResult.vulnerabilities.length > 0) {
-            for (const vuln of analysisResult.vulnerabilities) {
-              try {
-                const comment = commentFormatter.formatVulnerabilityComment(vuln);
+          // Step 5: Process style issues
+          if (analysisResult.style_issues && analysisResult.style_issues.length > 0) {
+            console.log(`[STYLE] Found ${analysisResult.style_issues.length} total style issues`);
 
-                await githubCommentService.postReviewComment(
-                  repository.owner.login,
-                  repository.name,
-                  pr.number,
-                  pr.head.sha,
-                  file.filename,
-                  vuln.line_number,
-                  comment,
-                  githubToken
+            // Add ALL style issues to aggregated list for email notification
+            analysisResult.style_issues.forEach(issue => {
+              allStyleIssues.push({
+                ...issue,
+                file_path: file.filename
+              });
+            });
+
+            // Filter for IMPORTANT style issues to post on GitHub
+            // Only post: naming conventions and unused imports/variables
+            const importantCategories = [
+              'naming',
+              'class_name',
+              'function_name',
+              'constant_name',
+              'unused_import',
+              'unused_variable'
+            ];
+
+            const importantStyleIssues = analysisResult.style_issues.filter(issue =>
+              importantCategories.includes(issue.category)
+            );
+
+            // Post batched comment with important style issues only
+            if (importantStyleIssues.length > 0) {
+              try {
+                const batchedStyleComment = commentFormatter.formatBatchedStyleComment(
+                  importantStyleIssues,
+                  file.filename
                 );
 
-                console.log(`  [COMMENT] Posted comment on line ${vuln.line_number} (${vuln.severity})`);
+                if (batchedStyleComment) {
+                  await githubCommentService.postSummaryComment(
+                    repository.owner.login,
+                    repository.name,
+                    pr.number,
+                    batchedStyleComment,
+                    githubToken
+                  );
+
+                  console.log(`  [STYLE] Posted batched style comment (${importantStyleIssues.length} important issues)`);
+                }
               } catch (error) {
-                console.error(`  [WARN] Failed to post inline comment:`, error.message);
-                // Continue with other comments even if one fails
+                console.error(`  [WARN] Failed to post batched style comment:`, error.message);
               }
+            } else {
+              console.log(`  [STYLE] No important style issues to post on GitHub`);
             }
           }
 
@@ -95,6 +162,60 @@ class WebhookController {
           console.error(`[ERROR] Failed to analyze ${file.filename}:`, error.message);
           // Continue with other files
         }
+      }
+
+      // Step 6: Send email notification to reviewers with analysis preview
+      try {
+        console.log('\n[EMAIL] Preparing notification to reviewers...');
+
+        // Calculate severity counts
+        const severityCounts = {
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0
+        };
+
+        allVulnerabilities.forEach(vuln => {
+          const severity = vuln.severity?.toLowerCase() || 'low';
+          if (severityCounts[severity] !== undefined) {
+            severityCounts[severity]++;
+          }
+        });
+
+        // Prepare PR data for email
+        const prData = {
+          repository: repository.full_name,
+          pr_number: pr.number,
+          pr_url: pr.html_url,
+          pr_title: pr.title,
+          author: pr.user.login,
+          filesAnalyzed: pythonFiles.length,
+          requested_reviewers: pr.requested_reviewers || [],
+          repo_owner: repository.owner.login
+        };
+
+        // Prepare aggregated analysis results
+        const analysisResults = {
+          total_vulnerabilities: allVulnerabilities.length,
+          critical_count: severityCounts.critical,
+          high_count: severityCounts.high,
+          medium_count: severityCounts.medium,
+          low_count: severityCounts.low,
+          total_style_issues: allStyleIssues.length,
+          vulnerabilities: allVulnerabilities,
+          styleIssues: allStyleIssues,
+          hasCritical: severityCounts.critical > 0
+        };
+
+        // Send notification (non-blocking, won't fail PR analysis if email fails)
+        await notificationService.notifyReviewers(prData, analysisResults);
+
+        console.log('[EMAIL] Notification process complete');
+
+      } catch (error) {
+        // Email failure should not fail the PR analysis
+        console.error('[EMAIL] Failed to send notifications (PR analysis still succeeded):', error.message);
       }
 
       console.log(`\n[COMPLETE] PR analysis complete for #${pr.number}\n`);
