@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: code_review
       POSTGRES_USER: dev
-      POSTGRES_PASSWORD: devpass123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass123}
     ports:
       - "5432:5432"
     volumes:
@@ -28,7 +28,7 @@ services:
     container_name: code-review-mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: dev
-      MONGO_INITDB_ROOT_PASSWORD: devpass123
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-devpass123}
     ports:
       - "27017:27017"
     volumes:
@@ -56,7 +56,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - DATABASE_URL=postgresql://dev:devpass123@postgres:5432/code_review
+      - DATABASE_URL=postgresql://dev:${POSTGRES_PASSWORD:-devpass123}@postgres:5432/code_review
       - REDIS_URL=redis://redis:6379
     depends_on:
       - postgres
@@ -77,7 +77,7 @@ services:
       - "8001:8001"
     environment:
       - PORT=8001
-      - MONGODB_URL=mongodb://dev:devpass123@mongodb:27017/
+      - MONGODB_URL=mongodb://dev:${MONGO_PASSWORD:-devpass123}@mongodb:27017/
       - REDIS_URL=redis://redis:6379
     depends_on:
       - mongodb
@@ -98,7 +98,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3002
-      - DATABASE_URL=postgresql://dev:devpass123@postgres:5432/code_review
+      - DATABASE_URL=postgresql://dev:${POSTGRES_PASSWORD:-devpass123}@postgres:5432/code_review
       - REDIS_URL=redis://redis:6379
     depends_on:
       - postgres

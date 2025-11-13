@@ -1,10 +1,29 @@
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { repositoryAPI } from '../services/api'
 import WebhookEventViewer from '../components/WebhookEventViewer'
 
 const DashboardPage = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [connectedRepoCount, setConnectedRepoCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchRepoCount = async () => {
+      try {
+        const data = await repositoryAPI.getConnectedCount()
+        setConnectedRepoCount(data.count)
+      } catch (error) {
+        console.error('Failed to fetch repo count:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRepoCount()
+  }, [])
 
   return (
     <div>
@@ -29,7 +48,9 @@ const DashboardPage = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Connected Repos</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                {loading ? '...' : connectedRepoCount}
+              </p>
             </div>
           </div>
         </div>
@@ -42,7 +63,7 @@ const DashboardPage = () => {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Analyses Completed</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Analysis Completed</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
             </div>
           </div>
@@ -95,6 +116,18 @@ const DashboardPage = () => {
               </svg>
               <span className="font-medium">Connect New Repository</span>
             </button>
+
+            {/* NEW: Code Analysis Testing Button */}
+            <button
+              onClick={() => navigate('/dashboard/analysis')}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span className="font-medium">Test Code Analysis</span>
+            </button>
+            
             <button
               onClick={() => navigate('/dashboard/reports')}
               className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
@@ -104,6 +137,7 @@ const DashboardPage = () => {
               </svg>
               <span className="font-medium">View All Reports</span>
             </button>
+            
             <button
               onClick={() => navigate('/dashboard/profile')}
               className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
@@ -121,4 +155,3 @@ const DashboardPage = () => {
 }
 
 export default DashboardPage
-

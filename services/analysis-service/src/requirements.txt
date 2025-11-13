@@ -1,0 +1,18 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+pymongo==4.6.0
+motor==3.3.2
+redis==5.0.1
+python-dotenv==1.0.0
+httpx==0.25.2
+
+# Google Cloud AI Platform
+google-cloud-aiplatform==1.38.0
+google-auth==2.25.2
+google-api-core==2.15.0
+
+# Code analysis
+pygments==2.17.2
+tree-sitter==0.20.4
