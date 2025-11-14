@@ -51,9 +51,19 @@ class StyleAnalyzer:
         }
     
     def _check_pep8(self, file_path: str) -> List[Dict]:
-        """Check PEP 8 style compliance"""
+        """Check PEP 8 style compliance - only important issues"""
         issues = []
-        
+
+        # Minor formatting issues to ignore (whitespace, blank lines, etc.)
+        IGNORED_CODES = {
+            'E302', 'E303', 'E305',  # Blank line issues
+            'W293', 'W291',          # Whitespace on blank/trailing lines
+            'E231', 'E225', 'E222', 'E223', 'E224', 'E226', 'E227', 'E228',  # Whitespace around operators
+            'E251',                  # Unexpected spaces around keyword/parameter equals
+            'E203',                  # Whitespace before punctuation
+            'E501',                  # Line too long (handled by complexity check)
+        }
+
         try:
             result = subprocess.run(
                 ['pycodestyle', '--max-line-length=120', file_path],
@@ -61,25 +71,31 @@ class StyleAnalyzer:
                 text=True,
                 timeout=10
             )
-            
+
             for line in result.stdout.strip().split('\n'):
                 if line:
                     # Parse: filename:line:column: error_code error_message
                     parts = line.split(':', 3)
                     if len(parts) >= 4:
+                        error_code = parts[3].split()[0]
+
+                        # Skip minor formatting issues
+                        if error_code in IGNORED_CODES:
+                            continue
+
                         issues.append({
                             "type": "style_violation",
                             "category": "pep8",
                             "severity": "low",
                             "line": int(parts[1]),
                             "column": int(parts[2]),
-                            "code": parts[3].split()[0],
+                            "code": error_code,
                             "message": parts[3],
                             "recommendation": "Follow PEP 8 style guidelines"
                         })
         except Exception as e:
             print(f"PEP 8 check failed: {e}")
-        
+
         return issues
     
     def _check_pylint(self, file_path: str) -> List[Dict]:
