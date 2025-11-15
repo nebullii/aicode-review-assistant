@@ -121,7 +121,7 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
 
   // Verify signature
   if (signature && !verifySignature(req.body, signature)) {
-    console.error('✗ Invalid webhook signature');
+    console.error('[ERROR] Invalid webhook signature');
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
@@ -130,7 +130,7 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
 
   // Only process pull_request events
   if (event !== 'pull_request') {
-    console.log(`Ignoring ${event} event`);
+    console.log(`[IGNORE] Ignoring ${event} event`);
     return res.status(200).json({ message: 'Event ignored' });
   }
 
@@ -151,7 +151,7 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
     );
 
     if (repoResult.rows.length === 0) {
-      console.log('✗ Repository not found in database');
+      console.log('[WARN] Repository not found in database');
       return res.status(200).json({ message: 'Repository not connected' });
     }
 
@@ -172,10 +172,12 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
         JSON.stringify(payload)
       ]
     );
-    console.log(`✓ Webhook event logged: ${action} on PR #${pr.number}`);
+    console.log(`[LOG] Webhook event logged: ${action} on PR #${pr.number}`);
 
-    // Only log for opened and synchronize (new commits) events
+    // SCRUM-88: Analyze Python files and post comments
     if (action === 'opened' || action === 'synchronize') {
+      const webhookController = require('../controllers/webhookController');
+
       // Check if analysis already exists
       const existingAnalysis = await pool.query(
         'SELECT id FROM analysis WHERE repository_id = $1 AND pr_number = $2',
@@ -187,19 +189,37 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
         await pool.query(
           `INSERT INTO analysis (repository_id, pr_number, pr_url, status, started_at)
            VALUES ($1, $2, $3, $4, NOW())`,
-          [repositoryId, pr.number, pr.html_url, 'received']
+          [repositoryId, pr.number, pr.html_url, 'processing']
         );
-        console.log(`✓ New PR analysis created for ${repository.full_name}#${pr.number}`);
+        console.log(`[CREATE] New PR analysis created for ${repository.full_name}#${pr.number}`);
       } else {
         // Update existing analysis
         await pool.query(
           `UPDATE analysis
            SET status = $1, started_at = NOW()
            WHERE repository_id = $2 AND pr_number = $3`,
-          ['received', repositoryId, pr.number]
+          ['processing', repositoryId, pr.number]
         );
-        console.log(`✓ PR analysis updated for ${repository.full_name}#${pr.number}`);
+        console.log(`[UPDATE] PR analysis updated for ${repository.full_name}#${pr.number}`);
       }
+      
+      // Process in background (don't wait for response)
+      webhookController.processPullRequest(payload, action)
+        .then(() => {
+          // Update status to completed
+          pool.query(
+            `UPDATE analysis SET status = $1, completed_at = NOW() WHERE repository_id = $2 AND pr_number = $3`,
+            ['completed', repositoryId, pr.number]
+          );
+        })
+        .catch(err => {
+          console.error('Background analysis error:', err);
+          // Update status to failed
+          pool.query(
+            `UPDATE analysis SET status = $1 WHERE repository_id = $2 AND pr_number = $3`,
+            ['failed', repositoryId, pr.number]
+          );
+        });
     }
 
     console.log(`=============================\n`);
@@ -211,7 +231,7 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
     });
 
   } catch (error) {
-    console.error('✗ Error processing webhook:', error);
+    console.error('[ERROR] Error processing webhook:', error);
     console.error(`=============================\n`);
     res.status(500).json({ error: 'Failed to process webhook' });
   }

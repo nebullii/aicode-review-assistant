@@ -5,6 +5,8 @@ const { pool } = require('../config/database');
 
 const router = express.Router();
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
+
 // Step 1: Redirect user to GitHub OAuth
 router.get('/github', (req, res) => {
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&scope=user:email,read:user,repo,write:repo_hook`;
@@ -16,7 +18,7 @@ router.get('/github/callback', async (req, res) => {
   const { code } = req.query;
 
   if (!code) {
-    return res.redirect('http://localhost:3001/?error=no_code');
+    return res.redirect(`${FRONTEND_URL}/?error=no_code`);
   }
 
   try {
@@ -36,7 +38,7 @@ router.get('/github/callback', async (req, res) => {
     const accessToken = tokenResponse.data.access_token;
 
     if (!accessToken) {
-      return res.redirect('http://localhost:3001/?error=auth_failed');
+      return res.redirect(`${FRONTEND_URL}/?error=auth_failed`);
     }
 
     // Get user info from GitHub
@@ -81,11 +83,11 @@ router.get('/github/callback', async (req, res) => {
     );
 
     // Redirect to dashboard with token
-    res.redirect(`http://localhost:3001/dashboard?token=${token}`);
+    res.redirect(`${FRONTEND_URL}/dashboard?token=${token}`);
     
   } catch (error) {
     console.error('GitHub OAuth error:', error.response?.data || error.message);
-    res.redirect('http://localhost:3001/?error=auth_failed');
+    res.redirect(`${FRONTEND_URL}/?error=auth_failed`);
   }
 });
 

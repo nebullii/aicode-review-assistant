@@ -4,6 +4,22 @@ const helmet = require('helmet');
 const webhookRoutes = require('./routes/webhooks');
 require('dotenv').config();
 
+// Validate required environment variables
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'WEBHOOK_SECRET'
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:');
+  missingEnvVars.forEach(varName => console.error(`  - ${varName}`));
+  process.exit(1);
+}
+
+console.log('✓ All required environment variables are set');
+
 const app = express();
 const PORT = process.env.PORT || 3002;
 

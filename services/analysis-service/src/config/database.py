@@ -1,7 +1,9 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://dev:devpass123@mongodb:27017/")
+MONGODB_URL = os.getenv("MONGODB_URL")
+if not MONGODB_URL:
+    raise ValueError("MONGODB_URL environment variable is required")
 DATABASE_NAME = "analysis_results"
 
 class Database:
