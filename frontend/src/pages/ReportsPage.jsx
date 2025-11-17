@@ -2,11 +2,51 @@ import { useState, useEffect } from 'react';
 import { reportsAPI, repositoryAPI } from '../services/api';
 import PRAnalysisModal from '../components/PRAnalysisModal';
 
+const REPORTS_CACHE_KEY = 'reports_cache';
+const REPOS_CACHE_KEY = 'repositories_cache';
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes for reports (more dynamic data)
+
 const ReportsPage = () => {
-  const [analyses, setAnalyses] = useState([]);
-  const [repositories, setRepositories] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [analyses, setAnalyses] = useState(() => {
+    const cached = localStorage.getItem(REPORTS_CACHE_KEY);
+    if (cached) {
+      try {
+        const { analyses, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          return analyses;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [repositories, setRepositories] = useState(() => {
+    const cached = localStorage.getItem(REPOS_CACHE_KEY);
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          return data;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [summary, setSummary] = useState(() => {
+    const cached = localStorage.getItem(REPORTS_CACHE_KEY);
+    if (cached) {
+      try {
+        const { summary, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          return summary;
+        }
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -16,6 +56,20 @@ const ReportsPage = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
 
   useEffect(() => {
+    // Check if we have valid cache for unfiltered view
+    if (!selectedRepo && !selectedStatus) {
+      const cached = localStorage.getItem(REPORTS_CACHE_KEY);
+      if (cached) {
+        try {
+          const { timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_DURATION) {
+            // Cache is valid, skip fetch
+            return;
+          }
+        } catch (e) {}
+      }
+    }
+    // No valid cache or filters applied, fetch
     fetchData();
   }, [selectedRepo, selectedStatus]);
 
@@ -39,6 +93,21 @@ const ReportsPage = () => {
       setAnalyses(analysesData.analyses);
       setSummary(summaryData.summary);
       setRepositories(reposData.repositories);
+
+      // Cache only if no filters are applied
+      if (!selectedRepo && !selectedStatus) {
+        localStorage.setItem(REPORTS_CACHE_KEY, JSON.stringify({
+          analyses: analysesData.analyses,
+          summary: summaryData.summary,
+          timestamp: Date.now()
+        }));
+      }
+
+      // Always cache repositories
+      localStorage.setItem(REPOS_CACHE_KEY, JSON.stringify({
+        data: reposData.repositories,
+        timestamp: Date.now()
+      }));
     } catch (err) {
       console.error('Failed to fetch reports:', err);
       setError('Failed to load reports. Please try again.');
@@ -80,79 +149,75 @@ const ReportsPage = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">PR Analysis Reports</h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          View detailed reports of all pull request security analyses
-        </p>
-      </div>
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm font-medium text-red-800 dark:text-red-400">{error}</p>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Analyses</p>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{summary.total_analyses}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Analyses</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.total_analyses}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Completed</p>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{summary.completed}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Completed</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.completed}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <div className="flex items-center">
-              <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Failed</p>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{summary.failed}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Failed</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.failed}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <svg className="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Last 7 Days</p>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{summary.recent_7_days}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Last 7 Days</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.recent_7_days}</p>
               </div>
             </div>
           </div>
@@ -160,7 +225,7 @@ const ReportsPage = () => {
       )}
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Filters</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -170,7 +235,7 @@ const ReportsPage = () => {
             <select
               value={selectedRepo}
               onChange={(e) => setSelectedRepo(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
             >
               <option value="">All Repositories</option>
               {repositories.filter(r => r.is_connected).map(repo => (
@@ -188,7 +253,7 @@ const ReportsPage = () => {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
             >
               <option value="">All Statuses</option>
               <option value="completed">Completed</option>
@@ -204,7 +269,7 @@ const ReportsPage = () => {
                 setSelectedRepo('');
                 setSelectedStatus('');
               }}
-              className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              className="w-full px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               Clear Filters
             </button>
@@ -212,31 +277,32 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
-
       {/* Analyses Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Pull Request Analyses ({analyses.length})
           </h2>
         </div>
 
         {analyses.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400">
-              No analyses found. Connect a repository and create a pull request to see results here.
-            </p>
+          <div className="p-16 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-10 h-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No analyses found</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Connect a repository and create a pull request to see results here.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Repository
@@ -260,7 +326,7 @@ const ReportsPage = () => {
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {analyses.map((analysis) => (
-                  <tr key={analysis.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <tr key={analysis.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
                         {analysis.repository_name}
@@ -271,13 +337,16 @@ const ReportsPage = () => {
                         href={analysis.pr_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         #{analysis.pr_number}
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                       </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(analysis.status)}`}>
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(analysis.status)}`}>
                         {analysis.status}
                       </span>
                     </td>
@@ -290,9 +359,12 @@ const ReportsPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
                         onClick={() => handleViewDetails(analysis)}
-                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
+                        className="inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors"
                       >
                         View Details
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </button>
                     </td>
                   </tr>

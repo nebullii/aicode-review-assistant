@@ -1,4 +1,4 @@
-# AI Code Review Assistant
+# CodeSentry
 
 Microservices-based AI code review automation platform that integrates with GitHub to provide automated code analysis and review for your repositories.
 

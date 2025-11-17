@@ -47,17 +47,17 @@ const WebhookEventViewer = () => {
 
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
+        <div className="px-7 py-5 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Recent Webhook Events
           </h3>
         </div>
-        <div className="p-6">
+        <div className="p-7">
           <div className="animate-pulse space-y-3">
-            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
           </div>
         </div>
       </div>
@@ -66,13 +66,13 @@ const WebhookEventViewer = () => {
 
   if (error) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
+        <div className="px-7 py-5 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Recent Webhook Events
           </h3>
         </div>
-        <div className="p-6">
+        <div className="p-7">
           <div className="text-center py-8 text-red-600 dark:text-red-400">
             {error}
           </div>
@@ -82,14 +82,14 @@ const WebhookEventViewer = () => {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
+      <div className="px-7 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
           Recent Webhook Events
         </h3>
         <button
           onClick={fetchEvents}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
         >
           Refresh
         </button>
