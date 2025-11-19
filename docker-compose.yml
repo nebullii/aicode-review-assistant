@@ -58,13 +58,16 @@ services:
       - PORT=3000
       - DATABASE_URL=postgresql://dev:${POSTGRES_PASSWORD:-devpass123}@postgres:5432/code_review
       - REDIS_URL=redis://redis:6379
+      - GITHUB_SERVICE_GRPC=github-service:50052
     depends_on:
       - postgres
       - redis
+      - github-service
     networks:
       - code-review-net
     volumes:
       - ./services/api-service:/app
+      - ./protos:/app/protos
       - /app/node_modules
 
   # Analysis Service
@@ -74,7 +77,8 @@ services:
       dockerfile: Dockerfile
     container_name: code-review-analysis
     ports:
-      - "8001:8001"
+      - "8001:8001"   # REST API
+      - "50051:50051" # gRPC
     environment:
       - PORT=8001
       - MONGODB_URL=mongodb://dev:${MONGO_PASSWORD:-devpass123}@mongodb:27017/
@@ -86,6 +90,7 @@ services:
       - code-review-net
     volumes:
       - ./services/analysis-service:/app
+      - ./protos:/app/protos
 
 # Github Service
   github-service:
@@ -94,19 +99,24 @@ services:
       dockerfile: Dockerfile
     container_name: code-review-github
     ports:
-      - "3002:3002"
+      - "3002:3002"   # REST API
+      - "50052:50052" # gRPC
     environment:
       - NODE_ENV=development
       - PORT=3002
+      - GRPC_PORT=50052
       - DATABASE_URL=postgresql://dev:${POSTGRES_PASSWORD:-devpass123}@postgres:5432/code_review
       - REDIS_URL=redis://redis:6379
+      - ANALYSIS_SERVICE_GRPC=analysis-service:50051
     depends_on:
       - postgres
       - redis
+      - analysis-service
     networks:
       - code-review-net
     volumes:
       - ./services/github-service:/app
+      - ./protos:/app/protos
       - /app/node_modules
 
   

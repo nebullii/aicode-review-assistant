@@ -73,5 +73,15 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    import threading
+    from grpc import analysis_server
+
+    # Start gRPC server in background thread
+    grpc_thread = threading.Thread(target=analysis_server.serve, daemon=True)
+    grpc_thread.start()
+    print("✅ gRPC server started on port 50051")
+
+    # Start FastAPI server (blocking)
     port = int(os.getenv("PORT", 8001))
+    print(f"✅ REST API server starting on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

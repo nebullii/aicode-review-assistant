@@ -48,6 +48,12 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Start Express server
 app.listen(PORT, () => {
-  console.log(`GitHub Service running on port ${PORT}`);
+  console.log(`✅ GitHub Service REST API running on port ${PORT}`);
 });
+
+// Start gRPC server
+const { startGrpcServer } = require('./grpc/github-server');
+startGrpcServer();
+console.log(`✅ GitHub Service gRPC server starting...`);

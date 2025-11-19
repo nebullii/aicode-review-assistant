@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package codesentry.github;
+
+service GitHubService {
+  rpc GetPullRequest(GetPRRequest) returns (PRResponse);
+  rpc GetPRFiles(GetPRFilesRequest) returns (PRFilesResponse);
+  rpc PostComment(PostCommentRequest) returns (CommentResponse);
+  rpc RegisterWebhook(RegisterWebhookRequest) returns (RegisterWebhookResponse);
+  rpc UnregisterWebhook(UnregisterWebhookRequest) returns (UnregisterWebhookResponse);
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+message GetPRRequest {
+  string owner = 1;
+  string repo = 2;
+  int32 pr_number = 3;
+}
+
+message PRResponse {
+  int32 number = 1;
+  string title = 2;
+  string state = 3;
+  string head_sha = 4;
+  string base_branch = 5;
+  string head_branch = 6;
+  string author = 7;
+  int64 created_at = 8;
+}
+
+message GetPRFilesRequest {
+  string owner = 1;
+  string repo = 2;
+  int32 pr_number = 3;
+}
+
+message PRFilesResponse {
+  repeated PRFile files = 1;
+}
+
+message PRFile {
+  string filename = 1;
+  string status = 2;
+  int32 additions = 3;
+  int32 deletions = 4;
+  int32 changes = 5;
+  string patch = 6;
+}
+
+message PostCommentRequest {
+  string owner = 1;
+  string repo = 2;
+  int32 pr_number = 3;
+  string body = 4;
+  string commit_id = 5;
+  string path = 6;
+  int32 line = 7;
+}
+
+message CommentResponse {
+  bool success = 1;
+  string comment_id = 2;
+  string message = 3;
+}
+
+message RegisterWebhookRequest {
+  string repository_full_name = 1;
+  string github_token = 2;
+}
+
+message RegisterWebhookResponse {
+  bool success = 1;
+  string webhook_id = 2;
+  string message = 3;
+}
+
+message UnregisterWebhookRequest {
+  string repository_full_name = 1;
+  string webhook_id = 2;
+  string github_token = 3;
+}
+
+message UnregisterWebhookResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message HealthRequest {
+}
+
+message HealthResponse {
+  string status = 1;
+  string version = 2;
+  int64 timestamp = 3;
+}

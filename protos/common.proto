@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package codesentry.common;
+
+message Status {
+  bool success = 1;
+  string message = 2;
+}
+
+message Error {
+  string code = 1;
+  string message = 2;
+  int32 status_code = 3;
+}

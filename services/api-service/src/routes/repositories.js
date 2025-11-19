@@ -108,21 +108,15 @@ router.post('/connect', authenticateToken, async (req, res) => {
 
     const githubToken = userResult.rows[0].github_token;
 
-    // Register webhook with GitHub
+    // Register webhook with GitHub via gRPC
     let webhookId = null;
     try {
-      const GITHUB_SERVICE_URL = process.env.GITHUB_SERVICE_URL || 'http://localhost:3002';
-      const webhookResponse = await axios.post(
-        `${GITHUB_SERVICE_URL}/webhooks/register`,
-        {
-          repository_full_name: full_name,
-          github_token: githubToken,
-        }
-      );
-      webhookId = webhookResponse.data.webhook_id;
+      const githubClient = require('../grpc/github-client');
+      const webhookResponse = await githubClient.registerWebhook(full_name, githubToken);
+      webhookId = webhookResponse.webhook_id;
       console.log(`Webhook registered for ${full_name}: ${webhookId}`);
     } catch (webhookError) {
-      console.error('Webhook registration failed:', webhookError.response?.data || webhookError.message);
+      console.error('Webhook registration failed:', webhookError.message);
     }
 
     // Insert repository with webhook_id
@@ -215,21 +209,18 @@ router.post('/disconnect', authenticateToken, async (req, res) => {
 
     const githubToken = userResult.rows[0]?.github_token;
 
-    // Delete webhook from GitHub if webhook_id exists
+    // Delete webhook from GitHub if webhook_id exists via gRPC
     if (repository.webhook_id && githubToken) {
       try {
-        const GITHUB_SERVICE_URL = process.env.GITHUB_SERVICE_URL || 'http://localhost:3002';
-        await axios.post(
-          `${GITHUB_SERVICE_URL}/webhooks/unregister`,
-          {
-            repository_full_name: repository.full_name,
-            webhook_id: repository.webhook_id,
-            github_token: githubToken,
-          }
+        const githubClient = require('../grpc/github-client');
+        await githubClient.unregisterWebhook(
+          repository.full_name,
+          repository.webhook_id,
+          githubToken
         );
         console.log(`Webhook ${repository.webhook_id} deleted for ${repository.full_name}`);
       } catch (webhookError) {
-        console.error('Failed to delete webhook:', webhookError.response?.data || webhookError.message);
+        console.error('Failed to delete webhook:', webhookError.message);
         // Continue with repository deletion even if webhook deletion fails
       }
     }
