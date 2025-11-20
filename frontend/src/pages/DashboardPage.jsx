@@ -8,21 +8,32 @@ const DashboardPage = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [connectedRepoCount, setConnectedRepoCount] = useState(0)
+  const [analysisSummary, setAnalysisSummary] = useState({
+    total_analyses: 0,
+    completed: 0,
+    failed: 0,
+    recent_7_days: 0
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchRepoCount = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const data = await repositoryAPI.getConnectedCount()
-        setConnectedRepoCount(data.count)
+        // Fetch repository count
+        const repoData = await repositoryAPI.getConnectedCount()
+        setConnectedRepoCount(repoData.count)
+
+        // Fetch analysis summary
+        const summaryData = await repositoryAPI.getSummary()
+        setAnalysisSummary(summaryData.summary)
       } catch (error) {
-        console.error('Failed to fetch repo count:', error)
+        console.error('Failed to fetch dashboard data:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchRepoCount()
+    fetchDashboardData()
   }, [])
 
   return (
@@ -56,7 +67,9 @@ const DashboardPage = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Analyses</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {loading ? '...' : analysisSummary.total_analyses}
+              </p>
             </div>
           </div>
         </div>
@@ -70,13 +83,15 @@ const DashboardPage = () => {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Issues</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Failed Analyses</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {loading ? '...' : analysisSummary.failed}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Quality Score Card */}
+        {/* Completed Analyses Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-lg">
           <div className="flex items-center gap-4">
             <div className="flex-shrink-0 w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
@@ -85,8 +100,10 @@ const DashboardPage = () => {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Quality Score</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">A+</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Completed</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {loading ? '...' : analysisSummary.completed}
+              </p>
             </div>
           </div>
         </div>

@@ -75,6 +75,12 @@ export const repositoryAPI = {
     const response = await api.get('/api/repositories/count');
     return response.data;
   },
+
+  // Get summary statistics
+  getSummary: async () => {
+    const response = await api.get('/api/reports/summary');
+    return response.data;
+  },
 };
 
 // Webhook API calls

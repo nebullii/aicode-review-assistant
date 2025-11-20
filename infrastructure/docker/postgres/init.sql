@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS repository_config (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Create analyses table
-CREATE TABLE IF NOT EXISTS analyses (
+-- Create analysis table
+CREATE TABLE IF NOT EXISTS analysis (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   repository_id UUID REFERENCES repositories(id) ON DELETE CASCADE,
   pr_number INTEGER NOT NULL,
@@ -68,8 +68,8 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
 CREATE INDEX IF NOT EXISTS idx_repositories_user_id ON repositories(user_id);
-CREATE INDEX IF NOT EXISTS idx_analyses_repository_id ON analyses(repository_id);
-CREATE INDEX IF NOT EXISTS idx_analyses_status ON analyses(status);
+CREATE INDEX IF NOT EXISTS idx_analysis_repository_id ON analysis(repository_id);
+CREATE INDEX IF NOT EXISTS idx_analysis_status ON analysis(status);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_repository_id ON webhook_events(repository_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_received_at ON webhook_events(received_at DESC);
 
