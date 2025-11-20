@@ -18,11 +18,21 @@ class PRService {
         }
       });
 
-      // Filter for Python files only
-      const pythonFiles = response.data.filter(file =>
-        file.filename.endsWith('.py') &&
-        file.status !== 'removed' // Ignore deleted files
-      );
+      // Filter for Python files (all types)
+      const pythonExtensions = [
+        '.py',      // Standard Python files
+        '.ipynb',   // Jupyter notebooks
+        '.pyw',     // Python Windows scripts
+        '.pyx',     // Cython files
+        '.pyi',     // Python stub files (type hints)
+        '.pyc',     // Compiled Python (though rarely in PRs)
+      ];
+
+      const pythonFiles = response.data.filter(file => {
+        const filename = file.filename.toLowerCase();
+        return pythonExtensions.some(ext => filename.endsWith(ext)) &&
+               file.status !== 'removed'; // Ignore deleted files
+      });
 
       console.log(`[PYTHON] Found ${pythonFiles.length} Python files in PR`);
 
