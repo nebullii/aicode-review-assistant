@@ -9,9 +9,9 @@ python-dotenv==1.0.0
 httpx==0.25.2
 
 # Google Cloud AI Platform
-google-cloud-aiplatform==1.38.0
-google-auth==2.25.2
-google-api-core==2.15.0
+google-cloud-aiplatform>=1.60.0
+google-auth>=2.25.2
+google-api-core>=2.15.0
 
 # Code analysis
 pygments==2.17.2

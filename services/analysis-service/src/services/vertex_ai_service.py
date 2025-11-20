@@ -71,8 +71,12 @@ If no vulnerabilities found, return an empty array: []
 """
         
         try:
+            import vertexai
             from vertexai.generative_models import GenerativeModel
-            
+
+            # Initialize Vertex AI for this request
+            vertexai.init(project=self.project_id, location=self.location)
+
             model = GenerativeModel(self.model_name)
             response = model.generate_content(prompt)
             
