@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package github;
+
+// GitHub Service - Handles GitHub operations
+service GitHubService {
+  // Get pull request details
+  rpc GetPullRequest(GetPRRequest) returns (PullRequestResponse);
+
+  // Post analysis comment to PR
+  rpc PostComment(PostCommentRequest) returns (CommentResponse);
+
+  // Update PR status check
+  rpc UpdateStatus(UpdateStatusRequest) returns (StatusResponse);
+
+  // Get repository files
+  rpc GetRepositoryFiles(GetFilesRequest) returns (FilesResponse);
+
+  // Process webhook event
+  rpc ProcessWebhook(WebhookRequest) returns (WebhookResponse);
+
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message GetPRRequest {
+  string owner = 1;
+  string repo = 2;
+  int32 pull_number = 3;
+  string installation_id = 4;
+}
+
+message PullRequestResponse {
+  string id = 1;
+  int32 number = 2;
+  string title = 3;
+  string description = 4;
+  string state = 5; // open, closed, merged
+  string base_branch = 6;
+  string head_branch = 7;
+  Author author = 8;
+  repeated PRFile files = 9;
+  int64 created_at = 10;
+  int64 updated_at = 11;
+}
+
+message Author {
+  string username = 1;
+  string email = 2;
+  string avatar_url = 3;
+}
+
+message PRFile {
+  string filename = 1;
+  string status = 2; // added, modified, removed, renamed
+  int32 additions = 3;
+  int32 deletions = 4;
+  int32 changes = 5;
+  string patch = 6;
+  string raw_url = 7;
+}
+
+message PostCommentRequest {
+  string owner = 1;
+  string repo = 2;
+  int32 pull_number = 3;
+  string body = 4;
+  string commit_id = 5;
+  string path = 6; // file path for inline comment
+  int32 line = 7; // line number for inline comment
+  string installation_id = 8;
+}
+
+message CommentResponse {
+  string comment_id = 1;
+  string url = 2;
+  bool success = 3;
+  string error_message = 4;
+}
+
+message UpdateStatusRequest {
+  string owner = 1;
+  string repo = 2;
+  string commit_sha = 3;
+  string state = 4; // pending, success, failure, error
+  string context = 5; // e.g., "ai-code-review/analysis"
+  string description = 6;
+  string target_url = 7;
+  string installation_id = 8;
+}
+
+message StatusResponse {
+  bool success = 1;
+  string status_id = 2;
+  string error_message = 3;
+}
+
+message GetFilesRequest {
+  string owner = 1;
+  string repo = 2;
+  string ref = 3; // branch or commit SHA
+  repeated string paths = 4; // specific file paths, empty for all
+  string installation_id = 5;
+}
+
+message FilesResponse {
+  repeated FileContent files = 1;
+}
+
+message FileContent {
+  string path = 1;
+  string content = 2;
+  string encoding = 3; // base64, utf-8
+  int32 size = 4;
+  string sha = 5;
+}
+
+message WebhookRequest {
+  string event_type = 1; // pull_request, pull_request_review, etc.
+  string payload = 2; // JSON payload
+  string signature = 3; // webhook signature
+  string delivery_id = 4;
+}
+
+message WebhookResponse {
+  bool success = 1;
+  string message = 2;
+  string action_taken = 3;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string version = 2;
+  int64 uptime_seconds = 3;
+}

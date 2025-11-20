@@ -28,6 +28,13 @@ pip-delete-this-directory.txt
 services/**/.env
 services/**/.env.*
 
+# Credentials - NEVER COMMIT THESE
+credentials/
+.deployment-credentials
+*.pem
+*.key
+*service-account*.json
+
 # Docker
 docker-compose.override.yml
 
