@@ -3,6 +3,15 @@ const analysisClient = require('../services/analysisClient');
 const githubCommentService = require('../services/githubCommentService');
 const commentFormatter = require('../utils/commentFormatter');
 const notificationService = require('../services/notificationService');
+const { Pool } = require('pg');
+
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false
+  } : false,
+});
 
 class WebhookController {
   /**
@@ -17,10 +26,42 @@ class WebhookController {
 
     const pr = payload.pull_request;
     const repository = payload.repository;
-    const githubToken = process.env.GITHUB_TOKEN;
 
-    if (!githubToken) {
-      console.error('[ERROR] GITHUB_TOKEN not configured');
+    // Fetch GitHub token from database
+    let githubToken;
+    try {
+      // Get repository from database
+      const repoResult = await pool.query(
+        'SELECT user_id FROM repositories WHERE github_id = $1',
+        [repository.id]
+      );
+
+      if (repoResult.rows.length === 0) {
+        console.error('[ERROR] Repository not found in database');
+        return;
+      }
+
+      const userId = repoResult.rows[0].user_id;
+
+      // Get user's GitHub token
+      const userResult = await pool.query(
+        'SELECT github_token FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        console.error('[ERROR] User not found in database');
+        return;
+      }
+
+      githubToken = userResult.rows[0].github_token;
+
+      if (!githubToken) {
+        console.error('[ERROR] GitHub token not found for user');
+        return;
+      }
+    } catch (error) {
+      console.error('[ERROR] Failed to fetch GitHub token:', error.message);
       return;
     }
 
