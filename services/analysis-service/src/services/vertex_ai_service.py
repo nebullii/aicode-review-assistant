@@ -16,18 +16,31 @@ class VertexAIService:
     
     def __init__(self):
         self.use_mock = not GOOGLE_CLOUD_AVAILABLE
-        
+
         if not self.use_mock:
             self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
             self.location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
             self.model_name = "gemini-1.5-flash"
-            
+
+            # Check if project ID is set
+            if not self.project_id:
+                print("⚠️  GOOGLE_CLOUD_PROJECT not set. Using mock responses.")
+                self.use_mock = True
+                return
+
+            # Load credentials from file
             key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             if key_path and os.path.exists(key_path):
-                credentials = service_account.Credentials.from_service_account_file(key_path)
-                aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
+                try:
+                    credentials = service_account.Credentials.from_service_account_file(key_path)
+                    aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
+                    print(f"✅ GCP credentials loaded from {key_path}")
+                except Exception as e:
+                    print(f"⚠️  Failed to load GCP credentials: {e}. Using mock responses.")
+                    self.use_mock = True
             else:
-                aiplatform.init(project=self.project_id, location=self.location)
+                print(f"⚠️  Credentials file not found at {key_path}. Using mock responses.")
+                self.use_mock = True
     
     async def analyze_code_for_vulnerabilities(self, code: str, language: str = "javascript") -> Dict:
         """
