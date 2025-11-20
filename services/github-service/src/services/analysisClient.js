@@ -17,7 +17,7 @@ class AnalysisClient {
         pr_number: prNumber,
         repository: repository
       }, {
-        timeout: 30000 // 30 second timeout
+        timeout: 120000 // 2 minute timeout (accounts for service wake-up + AI analysis)
       });
 
       console.log(`[SUCCESS] Analysis complete: ${response.data.total_vulnerabilities} vulnerabilities found`);
