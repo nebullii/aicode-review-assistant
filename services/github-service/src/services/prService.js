@@ -48,6 +48,9 @@ class PRService {
    */
   async getFileContent(file, githubToken) {
     try {
+      console.log(`[DEBUG] Fetching file content from: ${file.raw_url}`);
+      console.log(`[DEBUG] File status: ${file.status}`);
+
       // Use the raw_url to get file content
       const response = await axios.get(file.raw_url, {
         headers: {
@@ -59,6 +62,8 @@ class PRService {
       return response.data;
     } catch (error) {
       console.error(`[ERROR] Failed to fetch content for ${file.filename}:`, error.message);
+      console.error(`[ERROR] File status: ${file.status}, Raw URL: ${file.raw_url}`);
+      console.error(`[ERROR] Response status: ${error.response?.status}, Details: ${error.response?.data}`);
       throw error;
     }
   }
