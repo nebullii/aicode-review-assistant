@@ -98,13 +98,23 @@ If no vulnerabilities found, return an empty array: []
         
         try:
             import vertexai
-            from vertexai.generative_models import GenerativeModel
+            from vertexai.generative_models import GenerativeModel, GenerationConfig
 
             # Initialize Vertex AI for this request
             vertexai.init(project=self.project_id, location=self.location)
 
             model = GenerativeModel(self.model_name)
-            response = model.generate_content(prompt)
+
+            # Configure for JSON output
+            generation_config = GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0.2,  # Lower temperature for more consistent JSON
+            )
+
+            response = model.generate_content(
+                prompt,
+                generation_config=generation_config
+            )
             
             result_text = response.text.strip()
             
