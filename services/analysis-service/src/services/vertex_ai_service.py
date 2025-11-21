@@ -29,17 +29,30 @@ class VertexAIService:
                 return
 
             # Load credentials from file
+            # Try multiple paths: env var, Render secret files, local dev
             key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            if key_path and os.path.exists(key_path):
-                try:
-                    credentials = service_account.Credentials.from_service_account_file(key_path)
-                    aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
-                    print(f"✅ GCP credentials loaded from {key_path}")
-                except Exception as e:
-                    print(f"⚠️  Failed to load GCP credentials: {e}. Using mock responses.")
-                    self.use_mock = True
-            else:
-                print(f"⚠️  Credentials file not found at {key_path}. Using mock responses.")
+            possible_paths = [
+                key_path,
+                "/etc/secrets/gcp-credentials.json",  # Render Secret Files
+                "/app/credentials/gcp-service-account.json",  # Local/Docker
+            ]
+
+            credentials_loaded = False
+            for path in possible_paths:
+                if path and os.path.exists(path):
+                    try:
+                        credentials = service_account.Credentials.from_service_account_file(path)
+                        aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
+                        print(f"✅ GCP credentials loaded from {path}")
+                        credentials_loaded = True
+                        break
+                    except Exception as e:
+                        print(f"⚠️  Failed to load GCP credentials from {path}: {e}")
+                        continue
+
+            if not credentials_loaded:
+                print(f"⚠️  Credentials file not found in any location. Checked: {[p for p in possible_paths if p]}")
+                print("⚠️  Using mock responses.")
                 self.use_mock = True
     
     async def analyze_code_for_vulnerabilities(self, code: str, language: str = "javascript") -> Dict:
