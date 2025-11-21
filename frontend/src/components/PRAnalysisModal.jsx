@@ -77,14 +77,27 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
               {analysis.repository_name} - PR #{analysis.pr_number}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href={analysis.pr_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              View on GitHub
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -237,8 +250,8 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
 
                   {/* Comments */}
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {/* Security Vulnerabilities */}
-                    {issues.vulnerabilities.map((vuln, idx) => {
+                    {/* Security Vulnerabilities - Show only top 2 */}
+                    {issues.vulnerabilities.slice(0, 2).map((vuln, idx) => {
                       const vulnKey = `vuln-${fileName}-${idx}`;
                       const isExpanded = expandedItems[vulnKey];
                       const descriptionNeedsTruncation = vuln.description && vuln.description.length > 150;
@@ -317,8 +330,28 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
                       );
                     })}
 
-                    {/* Style Issues */}
-                    {issues.styleIssues.map((issue, idx) => {
+                    {/* Show "View more" for vulnerabilities if there are more than 2 */}
+                    {issues.vulnerabilities.length > 2 && (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700/30 text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          + {issues.vulnerabilities.length - 2} more {issues.vulnerabilities.length - 2 === 1 ? 'vulnerability' : 'vulnerabilities'}
+                        </p>
+                        <a
+                          href={analysis.pr_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
+                        >
+                          View full analysis on GitHub
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Style Issues - Show only top 2 */}
+                    {issues.styleIssues.slice(0, 2).map((issue, idx) => {
                       const styleKey = `style-${fileName}-${idx}`;
                       const isExpanded = expandedItems[styleKey];
                       const messageNeedsTruncation = issue.message && issue.message.length > 150;
@@ -382,6 +415,26 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
                         </div>
                       );
                     })}
+
+                    {/* Show "View more" for style issues if there are more than 2 */}
+                    {issues.styleIssues.length > 2 && (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700/30 text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          + {issues.styleIssues.length - 2} more style {issues.styleIssues.length - 2 === 1 ? 'issue' : 'issues'}
+                        </p>
+                        <a
+                          href={analysis.pr_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
+                        >
+                          View full analysis on GitHub
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
