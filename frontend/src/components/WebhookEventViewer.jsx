@@ -5,16 +5,20 @@ const WebhookEventViewer = () => {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [currentPage]);
 
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
-      const data = await webhookAPI.getEvents(10);
-      setEvents(data.events);
+      const data = await webhookAPI.getEvents(itemsPerPage, (currentPage - 1) * itemsPerPage);
+      setEvents(data.events || []);
+      setTotalCount(data.total || 0);
       setError(null);
     } catch (err) {
       setError('Failed to load webhook events');
@@ -84,11 +88,21 @@ const WebhookEventViewer = () => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
       <div className="px-7 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-          Recent Webhook Events
-        </h3>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+            Recent Webhook Events
+          </h3>
+          {totalCount > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Showing {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
+            </p>
+          )}
+        </div>
         <button
-          onClick={fetchEvents}
+          onClick={() => {
+            setCurrentPage(1);
+            fetchEvents();
+          }}
           className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
         >
           Refresh
@@ -142,6 +156,31 @@ const WebhookEventViewer = () => {
           ))
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalCount > itemsPerPage && (
+        <div className="px-7 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalCount / itemsPerPage), prev + 1))}
+              disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -86,8 +86,8 @@ export const repositoryAPI = {
 // Webhook API calls
 export const webhookAPI = {
   // Get recent webhook events
-  getEvents: async (limit = 20) => {
-    const response = await api.get(`/api/webhooks/events?limit=${limit}`);
+  getEvents: async (limit = 20, offset = 0) => {
+    const response = await api.get(`/api/webhooks/events?limit=${limit}&offset=${offset}`);
     return response.data;
   },
 };
