@@ -3,42 +3,53 @@ import { analysisAPI } from '../services/api';
 
 const CodeAnalysisTest = () => {
   const [code, setCode] = useState('');
-  const [language, setLanguage] = useState('javascript');
+  const [language, setLanguage] = useState('python');
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
   const [serviceHealth, setServiceHealth] = useState(null);
+  const [usageCount, setUsageCount] = useState(0);
+  const [remainingUses, setRemainingUses] = useState(5);
 
-  // Sample vulnerable code examples
-  const examples = {
-    sqlInjection: `const userId = req.query.id;
-const query = "SELECT * FROM users WHERE id = " + userId;
-db.execute(query);`,
-    xss: `const userInput = req.body.comment;
-document.getElementById("output").innerHTML = userInput;`,
-    hardcodedCredentials: `const apiKey = "sk-1234567890abcdef";
-const password = "admin123";
-const dbConnection = "mongodb://admin:password@localhost:27017";`,
-    pythonStyleIssues: `# Python code with style issues
-import os,sys
+  const MAX_DAILY_USES = 5;
 
-class myClass:  # Should be MyClass
-    def CalculateTotal(self, items):  # Should be calculate_total
-        total=0
-        for item in items:
-            if item>0:
-                    total+=item
-        return total
+  // Check and update daily usage limit
+  const checkDailyLimit = () => {
+    const today = new Date().toDateString();
+    const stored = localStorage.getItem('code_analysis_usage');
 
-API_KEY = "hardcoded-api-key-12345"
-user_input = input("Enter data: ")
-exec(user_input)  # Security vulnerability`,
+    if (stored) {
+      const { date, count } = JSON.parse(stored);
+      if (date === today) {
+        setUsageCount(count);
+        setRemainingUses(Math.max(0, MAX_DAILY_USES - count));
+        return count < MAX_DAILY_USES;
+      }
+    }
+
+    // New day or first time
+    localStorage.setItem('code_analysis_usage', JSON.stringify({ date: today, count: 0 }));
+    setUsageCount(0);
+    setRemainingUses(MAX_DAILY_USES);
+    return true;
+  };
+
+  const incrementUsage = () => {
+    const today = new Date().toDateString();
+    const stored = localStorage.getItem('code_analysis_usage');
+    const { count } = stored ? JSON.parse(stored) : { count: 0 };
+    const newCount = count + 1;
+
+    localStorage.setItem('code_analysis_usage', JSON.stringify({ date: today, count: newCount }));
+    setUsageCount(newCount);
+    setRemainingUses(Math.max(0, MAX_DAILY_USES - newCount));
   };
 
   // Check service health on mount
   useEffect(() => {
     checkHealth();
+    checkDailyLimit();
     loadHistory();
   }, []);
 
@@ -66,6 +77,12 @@ exec(user_input)  # Security vulnerability`,
       return;
     }
 
+    // Check daily limit
+    if (!checkDailyLimit()) {
+      setError(`Daily limit reached. You've used all ${MAX_DAILY_USES} analyses for today. Please try again tomorrow!`);
+      return;
+    }
+
     setAnalyzing(true);
     setError(null);
     setResult(null);
@@ -74,23 +91,18 @@ exec(user_input)  # Security vulnerability`,
       const analysisResult = await analysisAPI.analyzeCode({
         code: code,
         language: language,
-        repository: 'test-repo',
-        file_path: 'test.js',
+        repository: 'playground',
+        file_path: `playground.${language === 'python' ? 'py' : language === 'javascript' ? 'js' : 'txt'}`,
       });
 
       setResult(analysisResult);
+      incrementUsage(); // Increment after successful analysis
       loadHistory(); // Refresh history
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed. Please try again.');
     } finally {
       setAnalyzing(false);
     }
-  };
-
-  const loadExample = (exampleCode) => {
-    setCode(exampleCode);
-    setResult(null);
-    setError(null);
   };
 
   const getSeverityColor = (severity) => {
@@ -121,63 +133,45 @@ exec(user_input)  # Security vulnerability`,
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Code Analysis Testing
+            Code Analysis Playground
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            AI Security Vulnerability Detection
+            Paste your code and get instant AI-powered security analysis
           </p>
         </div>
-        
-        {/* Service Health Badge */}
-        {serviceHealth && (
-          <div className={`px-4 py-2 rounded-lg ${
-            serviceHealth.status === 'ok' 
-              ? 'bg-green-100 text-green-800 border border-green-200' 
-              : 'bg-red-100 text-red-800 border border-red-200'
+
+        <div className="flex items-center gap-3">
+          {/* Usage Counter */}
+          <div className={`px-4 py-2 rounded-lg border ${
+            remainingUses > 2
+              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+              : remainingUses > 0
+              ? 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400'
+              : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
           }`}>
             <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${
-                serviceHealth.status === 'ok' ? 'bg-green-500' : 'bg-red-500'
-              }`}></span>
-              <span className="font-medium">Analysis Service {serviceHealth.status === 'ok' ? 'Online' : 'Offline'}</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-medium text-sm">{remainingUses}/{MAX_DAILY_USES} analyses left today</span>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Example Buttons */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Quick Examples:
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => loadExample(examples.sqlInjection)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            SQL Injection
-          </button>
-          <button
-            onClick={() => loadExample(examples.xss)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            XSS Vulnerability
-          </button>
-          <button
-            onClick={() => loadExample(examples.hardcodedCredentials)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            Hardcoded Credentials
-          </button>
-          <button
-            onClick={() => {
-              loadExample(examples.pythonStyleIssues);
-              setLanguage('python');
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            Python Style + Security
-          </button>
+          {/* Service Health Badge */}
+          {serviceHealth && (
+            <div className={`px-4 py-2 rounded-lg ${
+              serviceHealth.status === 'ok'
+                ? 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800'
+                : 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${
+                  serviceHealth.status === 'ok' ? 'bg-green-500' : 'bg-red-500'
+                }`}></span>
+                <span className="font-medium text-sm">Service {serviceHealth.status === 'ok' ? 'Online' : 'Offline'}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -222,10 +216,10 @@ exec(user_input)  # Security vulnerability`,
             <div className="flex items-end">
               <button
                 onClick={analyzeCode}
-                disabled={analyzing || !code.trim()}
+                disabled={analyzing || !code.trim() || remainingUses === 0}
                 className={`px-6 py-2 rounded-lg font-medium transition ${
-                  analyzing || !code.trim()
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  analyzing || !code.trim() || remainingUses === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
