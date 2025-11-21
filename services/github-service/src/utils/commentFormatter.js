@@ -94,7 +94,7 @@ class CommentFormatter {
     });
 
     comment += `---\n\n`;
-    comment += `<sub>🤖 **AI Code Review** • Powered by CodeSentry • [Report Issue](https://github.com/nebullii/aicode-review-assistant/issues)</sub>`;
+    comment += `<sub>Powered by **CodeSentry** • [Report Issue](https://github.com/nebullii/aicode-review-assistant/issues)</sub>`;
 
     return comment;
   }
@@ -124,7 +124,7 @@ class CommentFormatter {
              `![Quality](https://img.shields.io/badge/Quality-✓_Good-brightgreen)\n\n` +
              `> **Well done!** No security vulnerabilities or code quality issues detected.\n\n` +
              `---\n\n` +
-             `<sub>🤖 **AI Code Review** • Powered by CodeSentry</sub>`;
+             `<sub>Powered by **CodeSentry**</sub>`;
     }
 
     let summary = `## 📊 Code Analysis Report\n\n`;
@@ -182,7 +182,7 @@ class CommentFormatter {
     summary += `- Apply recommended fixes\n`;
     summary += `- Re-run analysis after changes\n\n`;
 
-    summary += `<sub>🤖 **AI Code Review** • Powered by CodeSentry • Analysis based on OWASP guidelines</sub>`;
+    summary += `<sub>Powered by **CodeSentry** • Analysis based on OWASP guidelines</sub>`;
 
     return summary;
   }
@@ -239,7 +239,7 @@ class CommentFormatter {
     });
 
     comment += `---\n\n`;
-    comment += `<sub>🤖 **AI Code Review** • Powered by CodeSentry • Based on PEP 8 and best practices</sub>`;
+    comment += `<sub>Powered by **CodeSentry** • Based on PEP 8 and best practices</sub>`;
 
     return comment;
   }
