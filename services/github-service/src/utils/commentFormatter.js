@@ -80,9 +80,11 @@ class CommentFormatter {
           comment += `${context}\n\n`;
         }
 
-        // Recommendation
-        comment += `**💡 Recommendation:**\n`;
+        // Recommendation (collapsible)
+        comment += `<details>\n`;
+        comment += `<summary><strong>💡 Recommended Solution</strong></summary>\n\n`;
         comment += `${vuln.recommendation}\n\n`;
+        comment += `</details>\n\n`;
 
         // Confidence indicator
         if (vuln.confidence < 0.7) {
@@ -224,15 +226,18 @@ class CommentFormatter {
         comment += `**Issue:**\n`;
         comment += `${issue.message}\n\n`;
 
-        comment += `**💡 Suggestion:**\n`;
+        // Suggestion (collapsible)
+        comment += `<details>\n`;
+        comment += `<summary><strong>💡 Suggested Fix</strong></summary>\n\n`;
         comment += `${issue.recommendation}\n\n`;
 
-        // Add helpful context
+        // Add helpful context inside suggestion
         const context = this.getCategoryContext(category);
         if (context) {
           comment += `**Why this matters:**\n`;
           comment += `${context}\n\n`;
         }
+        comment += `</details>\n\n`;
 
         comment += `</details>\n\n`;
       });
