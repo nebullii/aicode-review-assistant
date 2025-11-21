@@ -20,7 +20,7 @@ class VertexAIService:
         if not self.use_mock:
             self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
             self.location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-            self.model_name = "gemini-1.5-flash"
+            self.model_name = "gemini-2.5-flash"  # Updated to 2025 model (1.5 retired April 2025)
 
             # Check if project ID is set
             if not self.project_id:

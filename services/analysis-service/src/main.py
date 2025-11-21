@@ -57,7 +57,7 @@ async def health_check():
 @app.get("/")
 async def root():
     return {
-        "message": "Analysis Service API - AI Code Review Assistant",
+        "message": "CodeSentry Analysis Service",
         "version": "1.0.0",
         "endpoints": {
             "POST /api/analysis/analyze": "Analyze code for vulnerabilities",

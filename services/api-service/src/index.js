@@ -61,8 +61,8 @@ app.get('/health', async (req, res) => {
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'AI Code Review Assistant API',
+  res.json({
+    message: 'CodeSentry API',
     version: '1.0.0',
     endpoints: {
       health: '/health',

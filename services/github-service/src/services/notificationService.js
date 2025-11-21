@@ -72,9 +72,9 @@ class NotificationService {
 
     try {
       await this.transporter.sendMail({
-        from: `"${process.env.EMAIL_FROM_NAME || 'AI Code Review Assistant'}" <${process.env.EMAIL_USER}>`,
+        from: `"${process.env.EMAIL_FROM_NAME || 'CodeSentry'}" <${process.env.EMAIL_USER}>`,
         to: recipient,
-        subject: 'Test Email - AI Code Review Assistant',
+        subject: 'Test Email - CodeSentry',
         html: '<h1>Email Configuration Successful!</h1><p>Your email notification service is working correctly.</p>'
       });
 
@@ -124,7 +124,7 @@ class NotificationService {
 
         try {
           await this.transporter.sendMail({
-            from: `"${process.env.EMAIL_FROM_NAME || 'AI Code Review Assistant'}" <${process.env.EMAIL_USER}>`,
+            from: `"${process.env.EMAIL_FROM_NAME || 'CodeSentry'}" <${process.env.EMAIL_USER}>`,
             to: reviewer.email,
             subject: subject,
             html: emailBody,
@@ -418,7 +418,7 @@ class NotificationService {
 
           <!-- Footer -->
           <div class="footer">
-            <p><strong>AI Code Review Assistant</strong></p>
+            <p><strong>CodeSentry</strong></p>
             <p>Automated security and style analysis powered by Google Vertex AI</p>
             <p style="margin-top: 10px;">
               This is an automated notification. AI analysis comments have been posted directly on the PR.
