@@ -219,8 +219,8 @@ REDIS_URL=redis://redis:6379
 
 # Google Cloud / Vertex AI (from step 2)
 GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-service-account.json
-GCP_PROJECT_ID=your-gcp-project-id-from-step-2
-GCP_LOCATION=us-central1
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id-from-step-2
+GOOGLE_CLOUD_LOCATION=us-central1
 
 # Analysis Configuration
 MAX_FILE_SIZE_MB=10
@@ -391,7 +391,7 @@ docker-compose down
 **Analysis service fails to start / GCP authentication errors:**
 - Ensure you completed step 2 (GCP setup) fully
 - Verify `gcp-service-account.json` exists in `services/analysis-service/credentials/`
-- Check that `GCP_PROJECT_ID` in `.env` matches your actual GCP project ID
+- Check that `GOOGLE_CLOUD_PROJECT` in `.env` matches your actual GCP project ID
 - Verify Vertex AI API is enabled in your GCP project
 - Check analysis service logs: `docker-compose logs analysis-service`
 
