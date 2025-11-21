@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { reportsAPI, repositoryAPI } from '../services/api';
-import PRAnalysisModal from '../components/PRAnalysisModal';
+
+// Lazy load modal for better performance
+const PRAnalysisModal = lazy(() => import('../components/PRAnalysisModal'));
 
 const REPORTS_CACHE_KEY = 'reports_cache';
 const REPOS_CACHE_KEY = 'repositories_cache';
@@ -55,9 +57,14 @@ const ReportsPage = () => {
   const [selectedRepo, setSelectedRepo] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 10;
+
   useEffect(() => {
-    // Check if we have valid cache for unfiltered view
-    if (!selectedRepo && !selectedStatus) {
+    // Check if we have valid cache for unfiltered view (page 1 only)
+    if (!selectedRepo && !selectedStatus && currentPage === 1) {
       const cached = localStorage.getItem(REPORTS_CACHE_KEY);
       if (cached) {
         try {
@@ -71,18 +78,19 @@ const ReportsPage = () => {
     }
     // No valid cache or filters applied, fetch
     fetchData();
-  }, [selectedRepo, selectedStatus]);
+  }, [selectedRepo, selectedStatus, currentPage]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch analyses with filters
+      // Fetch analyses with filters and pagination
       const filters = {};
       if (selectedRepo) filters.repository_id = selectedRepo;
       if (selectedStatus) filters.status = selectedStatus;
-      filters.limit = 100;
+      filters.limit = itemsPerPage;
+      filters.offset = (currentPage - 1) * itemsPerPage;
 
       const [analysesData, summaryData, reposData] = await Promise.all([
         reportsAPI.getPRAnalyses(filters),
@@ -91,6 +99,7 @@ const ReportsPage = () => {
       ]);
 
       setAnalyses(analysesData.analyses);
+      setTotalCount(analysesData.total || 0);
       setSummary(summaryData.summary);
       setRepositories(reposData.repositories);
 
@@ -148,6 +157,30 @@ const ReportsPage = () => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
+
+  // Loading skeleton row
+  const SkeletonRow = () => (
+    <tr className="animate-pulse">
+      <td className="px-6 py-4">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+      </td>
+    </tr>
+  );
 
   return (
     <div className="space-y-6">
@@ -234,7 +267,10 @@ const ReportsPage = () => {
             </label>
             <select
               value={selectedRepo}
-              onChange={(e) => setSelectedRepo(e.target.value)}
+              onChange={(e) => {
+                setSelectedRepo(e.target.value);
+                setCurrentPage(1); // Reset to page 1 when filter changes
+              }}
               className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
             >
               <option value="">All Repositories</option>
@@ -252,7 +288,10 @@ const ReportsPage = () => {
             </label>
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setCurrentPage(1); // Reset to page 1 when filter changes
+              }}
               className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
             >
               <option value="">All Statuses</option>
@@ -268,6 +307,7 @@ const ReportsPage = () => {
               onClick={() => {
                 setSelectedRepo('');
                 setSelectedStatus('');
+                setCurrentPage(1);
               }}
               className="w-full px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
@@ -280,9 +320,16 @@ const ReportsPage = () => {
       {/* Analyses Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Pull Request Analyses ({analyses.length})
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Pull Request Analyses
+            </h2>
+            {totalCount > 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Showing {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
+              </p>
+            )}
+          </div>
         </div>
 
         {analyses.length === 0 ? (
@@ -325,7 +372,11 @@ const ReportsPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {analyses.map((analysis) => (
+                {loading ? (
+                  // Show skeleton rows while loading
+                  Array.from({ length: itemsPerPage }).map((_, idx) => <SkeletonRow key={idx} />)
+                ) : (
+                  analyses.map((analysis) => (
                   <tr key={analysis.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -368,22 +419,57 @@ const ReportsPage = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {totalCount > itemsPerPage && (
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalCount / itemsPerPage), prev + 1))}
+                disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Analysis Details Modal */}
       {showModal && selectedAnalysis && (
-        <PRAnalysisModal
-          analysis={selectedAnalysis}
-          onClose={() => {
-            setShowModal(false);
-            setSelectedAnalysis(null);
-          }}
-        />
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading details...</p>
+            </div>
+          </div>
+        }>
+          <PRAnalysisModal
+            analysis={selectedAnalysis}
+            onClose={() => {
+              setShowModal(false);
+              setSelectedAnalysis(null);
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );
