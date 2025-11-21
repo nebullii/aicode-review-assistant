@@ -1,9 +1,21 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import ssl
+import certifi
 
 MONGODB_URL = os.getenv("MONGODB_URL")
 if not MONGODB_URL:
     raise ValueError("MONGODB_URL environment variable is required")
+
+# Ensure MongoDB Atlas connection string has proper format
+# Expected format: mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
+if MONGODB_URL and "mongodb+srv://" in MONGODB_URL:
+    # Add missing parameters if not present
+    if "retryWrites" not in MONGODB_URL:
+        separator = "&" if "?" in MONGODB_URL else "?"
+        MONGODB_URL = f"{MONGODB_URL}{separator}retryWrites=true&w=majority"
+        print("⚠️  Added retryWrites=true&w=majority to MongoDB URL")
+
 DATABASE_NAME = "analysis_results"
 
 class Database:
@@ -14,11 +26,15 @@ db = Database()
 async def connect_to_mongo():
     """Connect to MongoDB and verify connection"""
     try:
+        # Explicit TLS/SSL configuration for MongoDB Atlas
+        # Use certifi's CA bundle for proper SSL certificate validation
         db.client = AsyncIOMotorClient(
             MONGODB_URL,
             serverSelectionTimeoutMS=5000,
             connectTimeoutMS=10000,
             socketTimeoutMS=10000,
+            tls=True,
+            tlsCAFile=certifi.where(),  # Use certifi's CA bundle
         )
 
         # Actually test the connection by pinging
