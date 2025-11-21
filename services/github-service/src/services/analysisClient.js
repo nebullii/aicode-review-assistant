@@ -6,7 +6,7 @@ class AnalysisClient {
   /**
    * SCRUM-88: Call analysis-service to analyze Python code
    */
-  async analyzeCode(code, filePath, prNumber, repository) {
+  async analyzeCode(code, filePath, prNumber, repository, retries = 2) {
     try {
       console.log(`[ANALYZE] Analyzing Python file: ${filePath}`);
 
@@ -17,14 +17,30 @@ class AnalysisClient {
         pr_number: prNumber,
         repository: repository
       }, {
-        timeout: 120000 // 2 minute timeout (accounts for service wake-up + AI analysis)
+        timeout: 600000 // 10 minute timeout for complex files and large PRs
       });
 
       console.log(`[SUCCESS] Analysis complete: ${response.data.total_vulnerabilities} vulnerabilities found`);
       return response.data;
     } catch (error) {
       console.error(`[ERROR] Analysis failed for ${filePath}:`, error.message);
-      throw error;
+
+      // Retry on 502/503/504 errors (service temporarily unavailable)
+      if (retries > 0 && error.response && [502, 503, 504].includes(error.response.status)) {
+        console.log(`[RETRY] Retrying analysis for ${filePath} (${retries} retries left)...`);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        return this.analyzeCode(code, filePath, prNumber, repository, retries - 1);
+      }
+
+      // Return empty result instead of throwing - continue with other files
+      console.error(`[SKIP] Skipping ${filePath} due to analysis failure`);
+      return {
+        vulnerabilities: [],
+        style_issues: [],
+        total_vulnerabilities: 0,
+        total_style_issues: 0,
+        error: error.message
+      };
     }
   }
 
