@@ -60,10 +60,17 @@ class VertexAIService:
         Analyze code using Vertex AI to detect security vulnerabilities
         SCRUM-87: Security Vulnerability Detection
         """
-        
+
         # Use mock data if Google Cloud not available
         if self.use_mock:
             return self._mock_analysis(code, language)
+
+        # Limit code size to prevent memory issues (max 10,000 characters)
+        # For larger files, analyze only the first 10k characters
+        MAX_CODE_LENGTH = 10000
+        if len(code) > MAX_CODE_LENGTH:
+            print(f"⚠️  Code too long ({len(code)} chars), analyzing first {MAX_CODE_LENGTH} characters")
+            code = code[:MAX_CODE_LENGTH]
         
         prompt = f"""You are a security expert code reviewer. Analyze the following {language} code for security vulnerabilities.
 
@@ -78,22 +85,42 @@ Focus on detecting:
 8. Security misconfiguration
 9. Injection flaws
 10. Insecure dependencies
+11. Command Injection
+12. Path Traversal
+13. Insecure Cryptography
+14. Race Conditions
+15. Memory Safety Issues
 
 Code to analyze:
 ```{language}
 {code}
 ```
 
-Return ONLY a JSON array of vulnerabilities found. Each vulnerability should have:
-- type: (sql_injection, cross_site_scripting, authentication_bypass, etc.)
-- severity: (critical, high, medium, low, info)
-- line_number: (approximate line number)
-- code_snippet: (the problematic code)
-- description: (what the issue is)
-- recommendation: (how to fix it)
-- confidence: (0.0 to 1.0)
+Return ONLY a JSON array of vulnerabilities found. Each vulnerability MUST have ALL these fields:
+- type: REQUIRED - Must be one of: "SQL Injection", "Cross-Site Scripting (XSS)", "Command Injection", "Authentication Bypass", "Authorization Bypass", "Insecure Deserialization", "Sensitive Data Exposure", "XML External Entity (XXE)", "Broken Access Control", "Security Misconfiguration", "Path Traversal", "Insecure Cryptography", "Race Condition", "Memory Safety", "Injection Flaw", "Insecure Dependency", or "Security Issue" (use this as fallback only if no specific type applies)
+- severity: REQUIRED - Must be exactly one of: "critical", "high", "medium", "low"
+- line_number: REQUIRED - Integer line number where issue occurs
+- code_snippet: REQUIRED - The actual problematic code (max 200 chars)
+- description: REQUIRED - Clear explanation of the security issue
+- recommendation: REQUIRED - Specific actionable fix
+- confidence: REQUIRED - Float between 0.0 and 1.0
+
+CRITICAL: The "type" field must NEVER be null, empty, or generic. Always provide a specific vulnerability type from the list above.
 
 If no vulnerabilities found, return an empty array: []
+
+Example of correct format:
+[
+  {{
+    "type": "SQL Injection",
+    "severity": "critical",
+    "line_number": 15,
+    "code_snippet": "query = f\\"SELECT * FROM users WHERE id = {{user_id}}\\"",
+    "description": "SQL injection vulnerability due to string formatting in database query",
+    "recommendation": "Use parameterized queries: cursor.execute(\\"SELECT * FROM users WHERE id = %s\\", (user_id,))",
+    "confidence": 0.95
+  }}
+]
 """
         
         try:
@@ -117,21 +144,54 @@ If no vulnerabilities found, return an empty array: []
             )
             
             result_text = response.text.strip()
-            
+
             if result_text.startswith("```"):
                 result_text = result_text.split("```")[1]
                 if result_text.startswith("json"):
                     result_text = result_text[4:].strip()
-            
+
             vulnerabilities = json.loads(result_text)
-            
-            return {
+
+            # Validate and fix missing or invalid 'type' fields
+            if isinstance(vulnerabilities, list):
+                for vuln in vulnerabilities:
+                    if not vuln.get("type") or vuln.get("type").strip() == "":
+                        # Infer type from description if possible
+                        description_lower = vuln.get("description", "").lower()
+                        if "sql" in description_lower and "inject" in description_lower:
+                            vuln["type"] = "SQL Injection"
+                        elif "xss" in description_lower or "cross-site" in description_lower or "script" in description_lower:
+                            vuln["type"] = "Cross-Site Scripting (XSS)"
+                        elif "command" in description_lower and "inject" in description_lower:
+                            vuln["type"] = "Command Injection"
+                        elif "auth" in description_lower:
+                            vuln["type"] = "Authentication Bypass"
+                        elif "password" in description_lower or "credential" in description_lower or "secret" in description_lower:
+                            vuln["type"] = "Sensitive Data Exposure"
+                        elif "path" in description_lower and "travers" in description_lower:
+                            vuln["type"] = "Path Traversal"
+                        elif "crypt" in description_lower:
+                            vuln["type"] = "Insecure Cryptography"
+                        else:
+                            # Fallback to generic type
+                            vuln["type"] = "Security Issue"
+                        print(f"⚠️  Fixed missing type field: {vuln['type']} (inferred from description)")
+
+            result = {
                 "vulnerabilities": vulnerabilities if isinstance(vulnerabilities, list) else [],
                 "raw_response": response.text
             }
-            
+
+            # Force garbage collection to free memory
+            import gc
+            gc.collect()
+
+            return result
+
         except Exception as e:
             print(f"❌ Vertex AI Error: {str(e)}")
+            import gc
+            gc.collect()
             return self._mock_analysis(code, language)
     
     def _mock_analysis(self, code: str, language: str) -> Dict:

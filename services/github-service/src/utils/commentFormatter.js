@@ -288,19 +288,45 @@ class CommentFormatter {
   formatVulnTypeHuman(type) {
     if (!type) return 'Security Issue';
 
+    // Handle both underscore format and human-readable format from Vertex AI
     const typeMap = {
-      'sql_injection': 'SQL Injection Vulnerability',
+      // Underscore format (legacy)
+      'sql_injection': 'SQL Injection',
       'cross_site_scripting': 'Cross-Site Scripting (XSS)',
       'authentication_bypass': 'Authentication Bypass',
-      'broken_access_control': 'Access Control Issue',
+      'authorization_bypass': 'Authorization Bypass',
+      'broken_access_control': 'Broken Access Control',
       'sensitive_data_exposure': 'Sensitive Data Exposure',
       'xml_external_entities': 'XML External Entity (XXE)',
       'insecure_deserialization': 'Insecure Deserialization',
       'security_misconfiguration': 'Security Misconfiguration',
-      'injection_flaw': 'Injection Vulnerability',
-      'insecure_dependencies': 'Vulnerable Dependency',
+      'injection_flaw': 'Injection Flaw',
+      'insecure_dependencies': 'Insecure Dependency',
+      'insecure_dependency': 'Insecure Dependency',
       'hardcoded_secret': 'Hardcoded Secret',
-      'weak_crypto': 'Weak Cryptography',
+      'weak_crypto': 'Insecure Cryptography',
+      'command_injection': 'Command Injection',
+      'path_traversal': 'Path Traversal',
+      'race_condition': 'Race Condition',
+      'memory_safety': 'Memory Safety Issue',
+      // Human-readable format (from improved Vertex AI prompt) - already good
+      'SQL Injection': 'SQL Injection',
+      'Cross-Site Scripting (XSS)': 'Cross-Site Scripting (XSS)',
+      'Command Injection': 'Command Injection',
+      'Authentication Bypass': 'Authentication Bypass',
+      'Authorization Bypass': 'Authorization Bypass',
+      'Insecure Deserialization': 'Insecure Deserialization',
+      'Sensitive Data Exposure': 'Sensitive Data Exposure',
+      'XML External Entity (XXE)': 'XML External Entity (XXE)',
+      'Broken Access Control': 'Broken Access Control',
+      'Security Misconfiguration': 'Security Misconfiguration',
+      'Path Traversal': 'Path Traversal',
+      'Insecure Cryptography': 'Insecure Cryptography',
+      'Race Condition': 'Race Condition',
+      'Memory Safety': 'Memory Safety Issue',
+      'Injection Flaw': 'Injection Flaw',
+      'Insecure Dependency': 'Insecure Dependency',
+      'Security Issue': 'Security Issue',
     };
 
     return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -323,9 +349,11 @@ class CommentFormatter {
 
   getSecurityContext(type, severity) {
     const contexts = {
+      // Underscore format (legacy)
       'sql_injection': 'SQL injection allows attackers to manipulate database queries, potentially leading to unauthorized data access, modification, or deletion.',
       'cross_site_scripting': 'XSS vulnerabilities enable attackers to inject malicious scripts that execute in users\' browsers, potentially stealing sensitive data or hijacking sessions.',
       'authentication_bypass': 'Authentication flaws can allow unauthorized access to protected resources or user accounts, compromising system security.',
+      'authorization_bypass': 'Authorization flaws enable users to access resources or perform actions beyond their permitted scope.',
       'sensitive_data_exposure': 'Exposing sensitive information like passwords, API keys, or personal data creates significant security risks and compliance issues.',
       'broken_access_control': 'Access control weaknesses enable users to perform actions or access data beyond their authorized permissions.',
       'insecure_deserialization': 'Insecure deserialization can lead to remote code execution, allowing attackers to run arbitrary code on your server.',
@@ -333,6 +361,28 @@ class CommentFormatter {
       'injection_flaw': 'Injection vulnerabilities allow attackers to send malicious input that gets executed as code or commands.',
       'hardcoded_secret': 'Hardcoded secrets in source code can be easily discovered by attackers, compromising your entire system.',
       'weak_crypto': 'Weak cryptographic algorithms or implementations can be broken by attackers, exposing sensitive data.',
+      'command_injection': 'Command injection allows attackers to execute arbitrary system commands, potentially compromising the entire server.',
+      'path_traversal': 'Path traversal vulnerabilities allow attackers to access files outside the intended directory, potentially exposing sensitive data.',
+      'race_condition': 'Race conditions can lead to unpredictable behavior and security vulnerabilities when multiple operations occur simultaneously.',
+      'memory_safety': 'Memory safety issues like buffer overflows can lead to crashes, data corruption, or remote code execution.',
+      // Human-readable format (from Vertex AI)
+      'SQL Injection': 'SQL injection allows attackers to manipulate database queries, potentially leading to unauthorized data access, modification, or deletion.',
+      'Cross-Site Scripting (XSS)': 'XSS vulnerabilities enable attackers to inject malicious scripts that execute in users\' browsers, potentially stealing sensitive data or hijacking sessions.',
+      'Command Injection': 'Command injection allows attackers to execute arbitrary system commands, potentially compromising the entire server.',
+      'Authentication Bypass': 'Authentication flaws can allow unauthorized access to protected resources or user accounts, compromising system security.',
+      'Authorization Bypass': 'Authorization flaws enable users to access resources or perform actions beyond their permitted scope.',
+      'Insecure Deserialization': 'Insecure deserialization can lead to remote code execution, allowing attackers to run arbitrary code on your server.',
+      'Sensitive Data Exposure': 'Exposing sensitive information like passwords, API keys, or personal data creates significant security risks and compliance issues.',
+      'XML External Entity (XXE)': 'XXE vulnerabilities can lead to sensitive data disclosure, server-side request forgery, or denial of service attacks.',
+      'Broken Access Control': 'Access control weaknesses enable users to perform actions or access data beyond their authorized permissions.',
+      'Security Misconfiguration': 'Security misconfigurations often provide attackers with easy entry points into your application.',
+      'Path Traversal': 'Path traversal vulnerabilities allow attackers to access files outside the intended directory, potentially exposing sensitive data.',
+      'Insecure Cryptography': 'Weak cryptographic algorithms or implementations can be broken by attackers, exposing sensitive data.',
+      'Race Condition': 'Race conditions can lead to unpredictable behavior and security vulnerabilities when multiple operations occur simultaneously.',
+      'Memory Safety': 'Memory safety issues like buffer overflows can lead to crashes, data corruption, or remote code execution.',
+      'Injection Flaw': 'Injection vulnerabilities allow attackers to send malicious input that gets executed as code or commands.',
+      'Insecure Dependency': 'Using outdated or vulnerable dependencies exposes your application to known security vulnerabilities.',
+      'Security Issue': 'This security issue requires attention to prevent potential exploitation.',
     };
 
     return contexts[type] || 'This security issue requires attention to prevent potential exploitation.';

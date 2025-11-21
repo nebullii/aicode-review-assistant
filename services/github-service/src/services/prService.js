@@ -30,11 +30,25 @@ class PRService {
 
       const pythonFiles = response.data.filter(file => {
         const filename = file.filename.toLowerCase();
-        return pythonExtensions.some(ext => filename.endsWith(ext)) &&
-               file.status !== 'removed'; // Ignore deleted files
+        const isPython = pythonExtensions.some(ext => filename.endsWith(ext));
+        const isNotRemoved = file.status !== 'removed';
+
+        // Skip files that rarely have security issues
+        const skipPatterns = [
+          '/migrations/',           // Django/Flask migrations
+          '/alembic/versions/',     // Alembic migrations
+          '__init__.py',            // Empty init files
+          '/tests/',                // Test files (can analyze separately if needed)
+          '/test_',                 // Test files
+          '_test.py',               // Test files
+        ];
+
+        const shouldSkip = skipPatterns.some(pattern => filename.includes(pattern.toLowerCase()));
+
+        return isPython && isNotRemoved && !shouldSkip;
       });
 
-      console.log(`[PYTHON] Found ${pythonFiles.length} Python files in PR`);
+      console.log(`[PYTHON] Found ${pythonFiles.length} Python files in PR (skipped migrations/tests)`);
 
       return pythonFiles;
     } catch (error) {
