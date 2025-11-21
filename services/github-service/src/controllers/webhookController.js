@@ -76,13 +76,35 @@ class WebhookController {
         return;
       }
 
+      // Post initial progress comment for large PRs
+      if (pythonFiles.length > 3) {
+        try {
+          const progressComment = `## 🔍 CodeSentry Analysis Started\n\n` +
+            `Processing ${pythonFiles.length} Python ${pythonFiles.length === 1 ? 'file' : 'files'}...\n\n` +
+            `This may take a few minutes. We'll post findings as we discover them.\n\n` +
+            `<sub>Powered by **CodeSentry**</sub>`;
+
+          await githubCommentService.postSummaryComment(
+            repository.owner.login,
+            repository.name,
+            pr.number,
+            progressComment,
+            githubToken
+          );
+          console.log(`[PROGRESS] Posted initial comment for ${pythonFiles.length} files`);
+        } catch (error) {
+          console.error('[WARN] Failed to post progress comment:', error.message);
+        }
+      }
+
       // Track all analysis results for email notification
       const allVulnerabilities = [];
       const allStyleIssues = [];
 
-      // Step 2: Analyze each Python file
-      for (const file of pythonFiles) {
-        console.log(`\n[FILE] Processing: ${file.filename}`);
+      // Step 2: Analyze each Python file (sequential for memory efficiency)
+      for (let i = 0; i < pythonFiles.length; i++) {
+        const file = pythonFiles[i];
+        console.log(`\n[FILE ${i + 1}/${pythonFiles.length}] Processing: ${file.filename}`);
 
         try {
           // Get file content
@@ -156,6 +178,11 @@ class WebhookController {
           console.error(`[ERROR] Failed to analyze ${file.filename}:`, error.message);
           // Continue with other files
         }
+
+        // Small delay between files to allow garbage collection (helps with memory on free tier)
+        if (i < pythonFiles.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between files
+        }
       }
 
       // Step 6: Send email notification to reviewers with analysis preview
@@ -210,6 +237,31 @@ class WebhookController {
       } catch (error) {
         // Email failure should not fail the PR analysis
         console.error('[EMAIL] Failed to send notifications (PR analysis still succeeded):', error.message);
+      }
+
+      // Post completion comment for large PRs
+      if (pythonFiles.length > 3) {
+        try {
+          const completionComment = `## ✅ CodeSentry Analysis Complete\n\n` +
+            `Analyzed ${pythonFiles.length} Python ${pythonFiles.length === 1 ? 'file' : 'files'}\n\n` +
+            `**Summary:**\n` +
+            `- 🔴 Critical/High Issues: ${allVulnerabilities.filter(v => v.severity === 'critical' || v.severity === 'high').length}\n` +
+            `- 📊 Total Security Findings: ${allVulnerabilities.length}\n` +
+            `- 💎 Code Quality Suggestions: ${allStyleIssues.length}\n\n` +
+            `${allVulnerabilities.filter(v => v.severity === 'critical' || v.severity === 'high').length > 0 ? '⚠️ Please review the critical/high severity issues posted above.' : '✨ No critical or high severity issues found!'}\n\n` +
+            `<sub>Powered by **CodeSentry**</sub>`;
+
+          await githubCommentService.postSummaryComment(
+            repository.owner.login,
+            repository.name,
+            pr.number,
+            completionComment,
+            githubToken
+          );
+          console.log('[PROGRESS] Posted completion summary');
+        } catch (error) {
+          console.error('[WARN] Failed to post completion comment:', error.message);
+        }
       }
 
       console.log(`\n[COMPLETE] PR analysis complete for #${pr.number}\n`);
