@@ -96,9 +96,9 @@ class WebhookController {
             repository.full_name
           );
 
-          // Step 3: Post security findings FIRST (if any)
+          // Step 3: Process ALL findings for email/database (full analysis)
           if (analysisResult.vulnerabilities && analysisResult.vulnerabilities.length > 0) {
-            // Add to aggregated list for email notification
+            // Add ALL vulnerabilities to aggregated list for email notification
             analysisResult.vulnerabilities.forEach(vuln => {
               allVulnerabilities.push({
                 ...vuln,
@@ -106,48 +106,42 @@ class WebhookController {
               });
             });
 
-            // Post ONE batched comment for all security issues in this file
-            try {
-              const batchedComment = commentFormatter.formatBatchedSecurityComment(
-                analysisResult.vulnerabilities,
-                file.filename
-              );
+            // Filter for CRITICAL and HIGH severity only for GitHub comments
+            const criticalHighVulns = analysisResult.vulnerabilities.filter(vuln => {
+              const severity = vuln.severity?.toLowerCase();
+              return severity === 'critical' || severity === 'high';
+            });
 
-              if (batchedComment) {
-                await githubCommentService.postSummaryComment(
-                  repository.owner.login,
-                  repository.name,
-                  pr.number,
-                  batchedComment,
-                  githubToken
+            // Only post to GitHub if there are critical/high severity issues
+            if (criticalHighVulns.length > 0) {
+              try {
+                const batchedComment = commentFormatter.formatBatchedSecurityComment(
+                  criticalHighVulns,
+                  file.filename
                 );
 
-                console.log(`  [SECURITY] Posted batched security comment (${analysisResult.vulnerabilities.length} issues)`);
+                if (batchedComment) {
+                  await githubCommentService.postSummaryComment(
+                    repository.owner.login,
+                    repository.name,
+                    pr.number,
+                    batchedComment,
+                    githubToken
+                  );
+
+                  console.log(`  [SECURITY] Posted critical/high severity comment (${criticalHighVulns.length}/${analysisResult.vulnerabilities.length} issues)`);
+                }
+              } catch (error) {
+                console.error(`  [WARN] Failed to post batched security comment:`, error.message);
               }
-            } catch (error) {
-              console.error(`  [WARN] Failed to post batched security comment:`, error.message);
+            } else {
+              console.log(`  [SKIP] No critical/high severity issues to post on GitHub (found ${analysisResult.vulnerabilities.length} medium/low issues)`);
             }
           }
 
-          // Step 4: Post summary comment AFTER security findings
-          const summaryComment = commentFormatter.formatSummaryComment(
-            file.filename,
-            analysisResult
-          );
-
-          await githubCommentService.postSummaryComment(
-            repository.owner.login,
-            repository.name,
-            pr.number,
-            summaryComment,
-            githubToken
-          );
-
-          console.log(`[SUCCESS] Posted summary comment for ${file.filename}`);
-
-          // Step 5: Process style issues
+          // Step 4: Add style issues to aggregated list (for email/database only, not posted to GitHub)
           if (analysisResult.style_issues && analysisResult.style_issues.length > 0) {
-            console.log(`[STYLE] Found ${analysisResult.style_issues.length} total style issues`);
+            console.log(`[STYLE] Found ${analysisResult.style_issues.length} style issues (stored for email, not posted to GitHub)`);
 
             // Add ALL style issues to aggregated list for email notification
             analysisResult.style_issues.forEach(issue => {
@@ -156,47 +150,6 @@ class WebhookController {
                 file_path: file.filename
               });
             });
-
-            // Filter for IMPORTANT style issues to post on GitHub
-            // Only post: naming conventions and unused imports/variables
-            const importantCategories = [
-              'naming',
-              'class_name',
-              'function_name',
-              'constant_name',
-              'unused_import',
-              'unused_variable'
-            ];
-
-            const importantStyleIssues = analysisResult.style_issues.filter(issue =>
-              importantCategories.includes(issue.category)
-            );
-
-            // Post batched comment with important style issues only
-            if (importantStyleIssues.length > 0) {
-              try {
-                const batchedStyleComment = commentFormatter.formatBatchedStyleComment(
-                  importantStyleIssues,
-                  file.filename
-                );
-
-                if (batchedStyleComment) {
-                  await githubCommentService.postSummaryComment(
-                    repository.owner.login,
-                    repository.name,
-                    pr.number,
-                    batchedStyleComment,
-                    githubToken
-                  );
-
-                  console.log(`  [STYLE] Posted batched style comment (${importantStyleIssues.length} important issues)`);
-                }
-              } catch (error) {
-                console.error(`  [WARN] Failed to post batched style comment:`, error.message);
-              }
-            } else {
-              console.log(`  [STYLE] No important style issues to post on GitHub`);
-            }
           }
 
         } catch (error) {

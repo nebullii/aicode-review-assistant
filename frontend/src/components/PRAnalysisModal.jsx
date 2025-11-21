@@ -1,5 +1,21 @@
+import { useState } from 'react';
+
 const PRAnalysisModal = ({ analysis, onClose }) => {
+  const [expandedItems, setExpandedItems] = useState({});
+
   if (!analysis) return null;
+
+  const toggleExpanded = (key) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const truncateText = (text, maxLength = 150) => {
+    if (!text || text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
 
   const getSeverityColor = (severity) => {
     const colors = {
@@ -222,72 +238,150 @@ const PRAnalysisModal = ({ analysis, onClose }) => {
                   {/* Comments */}
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
                     {/* Security Vulnerabilities */}
-                    {issues.vulnerabilities.map((vuln, idx) => (
-                      <div key={`vuln-${idx}`} className="p-4 bg-white dark:bg-gray-800">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0">
-                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getSeverityColor(vuln.severity)}`}>
-                              {vuln.severity?.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                              {vuln.type?.replace(/_/g, ' ').toUpperCase() || 'Security Issue'}
-                              {vuln.line_number && (
-                                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                  Line {vuln.line_number}
-                                </span>
+                    {issues.vulnerabilities.map((vuln, idx) => {
+                      const vulnKey = `vuln-${fileName}-${idx}`;
+                      const isExpanded = expandedItems[vulnKey];
+                      const descriptionNeedsTruncation = vuln.description && vuln.description.length > 150;
+                      const recommendationNeedsTruncation = vuln.recommendation && vuln.recommendation.length > 150;
+
+                      return (
+                        <div key={vulnKey} className="p-4 bg-white dark:bg-gray-800">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0">
+                              <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getSeverityColor(vuln.severity)}`}>
+                                {vuln.severity?.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                                {vuln.type?.replace(/_/g, ' ').toUpperCase() || 'Security Issue'}
+                                {vuln.line_number && (
+                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Line {vuln.line_number}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Description */}
+                              <div className="mb-3">
+                                <strong className="text-sm text-gray-700 dark:text-gray-300">Description:</strong>
+                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {isExpanded || !descriptionNeedsTruncation
+                                    ? vuln.description
+                                    : truncateText(vuln.description)}
+                                </div>
+                                {descriptionNeedsTruncation && (
+                                  <button
+                                    onClick={() => toggleExpanded(vulnKey)}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                                  >
+                                    {isExpanded ? 'Show less' : 'Show more'}
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Code Snippet */}
+                              {vuln.code_snippet && (
+                                <pre className="bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-x-auto mb-3">
+                                  <code>{vuln.code_snippet}</code>
+                                </pre>
+                              )}
+
+                              {/* Recommendation */}
+                              <div className="mb-2">
+                                <strong className="text-sm text-gray-700 dark:text-gray-300">💡 Recommendation:</strong>
+                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {isExpanded || !recommendationNeedsTruncation
+                                    ? vuln.recommendation
+                                    : truncateText(vuln.recommendation)}
+                                </div>
+                                {recommendationNeedsTruncation && !descriptionNeedsTruncation && (
+                                  <button
+                                    onClick={() => toggleExpanded(vulnKey)}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                                  >
+                                    {isExpanded ? 'Show less' : 'Show more'}
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Confidence */}
+                              {vuln.confidence && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  Confidence: {Math.round(vuln.confidence * 100)}%
+                                </div>
                               )}
                             </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <strong>Description:</strong> {vuln.description}
-                            </div>
-                            {vuln.code_snippet && (
-                              <pre className="bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto mb-2">
-                                <code>{vuln.code_snippet}</code>
-                              </pre>
-                            )}
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              <strong>Recommendation:</strong> {vuln.recommendation}
-                            </div>
-                            {vuln.confidence && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Confidence: {Math.round(vuln.confidence * 100)}%
-                              </div>
-                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {/* Style Issues */}
-                    {issues.styleIssues.map((issue, idx) => (
-                      <div key={`style-${idx}`} className="p-4 bg-white dark:bg-gray-800">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0">
-                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getSeverityColor(issue.severity)}`}>
-                              {issue.severity?.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                              {issue.category?.toUpperCase()}: {issue.code}
-                              {issue.line && (
-                                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                  Line {issue.line}
-                                </span>
-                              )}
+                    {issues.styleIssues.map((issue, idx) => {
+                      const styleKey = `style-${fileName}-${idx}`;
+                      const isExpanded = expandedItems[styleKey];
+                      const messageNeedsTruncation = issue.message && issue.message.length > 150;
+                      const recommendationNeedsTruncation = issue.recommendation && issue.recommendation.length > 150;
+
+                      return (
+                        <div key={styleKey} className="p-4 bg-white dark:bg-gray-800">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0">
+                              <span className="inline-block px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                STYLE
+                              </span>
                             </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <strong>Issue:</strong> {issue.message}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              <strong>Recommendation:</strong> {issue.recommendation}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                                {issue.category?.toUpperCase()}: {issue.code}
+                                {issue.line && (
+                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Line {issue.line}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Issue Message */}
+                              <div className="mb-3">
+                                <strong className="text-sm text-gray-700 dark:text-gray-300">Issue:</strong>
+                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {isExpanded || !messageNeedsTruncation
+                                    ? issue.message
+                                    : truncateText(issue.message)}
+                                </div>
+                                {messageNeedsTruncation && (
+                                  <button
+                                    onClick={() => toggleExpanded(styleKey)}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                                  >
+                                    {isExpanded ? 'Show less' : 'Show more'}
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Recommendation */}
+                              <div>
+                                <strong className="text-sm text-gray-700 dark:text-gray-300">💡 Recommendation:</strong>
+                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {isExpanded || !recommendationNeedsTruncation
+                                    ? issue.recommendation
+                                    : truncateText(issue.recommendation)}
+                                </div>
+                                {recommendationNeedsTruncation && !messageNeedsTruncation && (
+                                  <button
+                                    onClick={() => toggleExpanded(styleKey)}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                                  >
+                                    {isExpanded ? 'Show less' : 'Show more'}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
