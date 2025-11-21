@@ -104,7 +104,7 @@ class AnalysisServicer(analysis_pb2_grpc.AnalysisServiceServicer):
             "pr_number": request.pr_number,
             "file_path": request.file_path,
             "language": request.language,
-            "vulnerabilities": [v.dict() for v in classified_vulns],
+            "vulnerabilities": [v.model_dump() for v in classified_vulns],
             "severity_counts": severity_counts,
             "total_vulnerabilities": len(classified_vulns),
             "style_issues": style_results.get("issues", []) if style_results else [],

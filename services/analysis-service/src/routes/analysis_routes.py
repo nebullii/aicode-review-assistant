@@ -103,19 +103,23 @@ async def analyze_code(request: AnalysisRequest):
             "language": request.language,
             
             # Security data
-            "vulnerabilities": [v.dict() for v in classified_vulns],
+            "vulnerabilities": [v.model_dump() for v in classified_vulns],
             "severity_counts": severity_counts,
             "total_vulnerabilities": len(classified_vulns),
-            
+
             # Style data
-            "style_issues": [s.dict() for s in style_issues_list],
+            "style_issues": [s.model_dump() for s in style_issues_list],
             "style_categories": style_categories,
             "total_style_issues": total_style_issues,
         })
         
         return result
-        
+
     except Exception as e:
+        # Log the full error for debugging
+        import traceback
+        print(f"❌ ANALYSIS ERROR: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @router.get("/history")

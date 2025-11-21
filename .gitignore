@@ -19,14 +19,22 @@ pip-delete-this-directory.txt
 # Environment variables - NEVER COMMIT THESE
 **/.env
 **/.env.local
+**/.env.production
 **/.env.*.local
 .env
 .env.local
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
 services/**/.env
+services/**/.env.production
 services/**/.env.*
+
+# EXCEPT: Always track .env.example files
+!**/.env.example
+!.env.example
+!services/**/.env.example
 
 # Credentials - NEVER COMMIT THESE
 credentials/
@@ -80,3 +88,22 @@ build/
 tmp/
 .env.jira
 .vercel
+
+# Development-only documentation and scripts (not needed in production)
+CODE_OPTIMIZATION_REPORT.md
+FIXES_APPLIED.md
+FREE_INFRASTRUCTURE_GUIDE.md
+PRE_DEPLOYMENT_CHECKLIST.md
+RENDER_ENV_SETUP.md
+SECURITY_FIX_*.md
+TEST_GRPC.md
+test_fixes.md
+deploy-free-infrastructure.sh
+migrate_table_name.sh
+reset_database_fresh.sh
+restart_database.sh
+setup-credentials.sh
+show-railway-vars.sh
+test_grpc_client.py
+railway-env-variables.txt
+.deployment-credentials.example
