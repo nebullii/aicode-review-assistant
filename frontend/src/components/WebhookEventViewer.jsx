@@ -20,11 +20,39 @@ const WebhookEventViewer = () => {
     try {
       setIsLoading(true);
 
-      // Fetch webhook events and analysis data
-      const [webhookData, analysisData] = await Promise.all([
-        webhookAPI.getEvents(50, 0),
-        axios.get(`${API_URL}/api/analysis/history?limit=50`, { withCredentials: true })
-      ]);
+      // Check cache first (5 minute cache)
+      const CACHE_KEY = 'pr_analysis_cache';
+      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+      const cached = localStorage.getItem(CACHE_KEY);
+
+      let analysisData = null;
+
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          console.log('Using cached analysis data');
+          analysisData = { data };
+        }
+      }
+
+      // Fetch webhook events
+      const webhookData = await webhookAPI.getEvents(50, 0);
+
+      // Fetch analysis data if not cached
+      if (!analysisData) {
+        try {
+          analysisData = await axios.get(`${API_URL}/api/analysis/history?limit=50`, { withCredentials: true });
+          // Cache the response
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            data: analysisData.data,
+            timestamp: Date.now()
+          }));
+          console.log('Fetched and cached fresh analysis data');
+        } catch (err) {
+          console.warn('Analysis API unavailable, using fallback:', err.message);
+          analysisData = { data: { analyses: [] } };
+        }
+      }
 
       const events = webhookData.events || [];
       const analyses = analysisData.data.analyses || [];
@@ -213,8 +241,32 @@ const WebhookEventViewer = () => {
                       <span className="text-sm text-gray-900 dark:text-white">{pr.author}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
-                    {pr.issues_found}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-1">
+                      {pr.severity_counts.critical > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400">
+                          {pr.severity_counts.critical} Critical
+                        </span>
+                      )}
+                      {pr.severity_counts.high > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400">
+                          {pr.severity_counts.high} High
+                        </span>
+                      )}
+                      {pr.severity_counts.medium > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400">
+                          {pr.severity_counts.medium} Medium
+                        </span>
+                      )}
+                      {pr.severity_counts.low > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400">
+                          {pr.severity_counts.low} Low
+                        </span>
+                      )}
+                      {pr.issues_found === 0 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">No issues</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
