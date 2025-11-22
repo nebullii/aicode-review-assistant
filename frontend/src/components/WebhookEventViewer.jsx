@@ -65,7 +65,7 @@ const WebhookEventViewer = () => {
         return {
           id: event.id,
           repository: event.repository_name,
-          branch: event.pr_title?.split(':')[0] || 'main',
+          branch: event.branch_name || 'main',
           author: event.sender_username,
           pr_number: event.pr_number,
           pr_url: event.pr_url,
@@ -77,7 +77,12 @@ const WebhookEventViewer = () => {
         };
       });
 
-      setPrData(combined);
+      // Paginate the data
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedData = combined.slice(startIndex, endIndex);
+
+      setPrData(paginatedData);
       setTotalCount(combined.length);
       setError(null);
     } catch (err) {
@@ -182,16 +187,18 @@ const WebhookEventViewer = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Repo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Author</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Issues</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Severity</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Vulnerabilities</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {prData.map((pr) => (
-                <tr key={pr.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    {pr.repository}
+                <tr key={pr.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => window.open(pr.pr_url, '_blank')}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{pr.repository}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">PR #{pr.pr_number}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {pr.branch}
@@ -206,18 +213,8 @@ const WebhookEventViewer = () => {
                       <span className="text-sm text-gray-900 dark:text-white">{pr.author}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
                     {pr.issues_found}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                      pr.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
-                      pr.severity === 'high' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
-                      pr.severity === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
-                      'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
-                    }`}>
-                      {pr.severity}
-                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

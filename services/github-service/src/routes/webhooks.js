@@ -161,8 +161,8 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
 
     // Log webhook event
     await pool.query(
-      `INSERT INTO webhook_events (repository_id, event_type, action, pr_number, pr_title, pr_url, sender_username, payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO webhook_events (repository_id, event_type, action, pr_number, pr_title, pr_url, branch_name, sender_username, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         repositoryId,
         event,
@@ -170,6 +170,7 @@ router.post('/github', express.raw({ type: 'application/json' }), async (req, re
         pr.number,
         pr.title,
         pr.html_url,
+        pr.head.ref,
         payload.sender.login,
         JSON.stringify(payload)
       ]
