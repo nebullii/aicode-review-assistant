@@ -9,10 +9,8 @@ python-dotenv==1.0.0
 httpx==0.25.2
 certifi>=2023.7.22
 
-# Google Cloud AI Platform
-google-cloud-aiplatform>=1.60.0
-google-auth>=2.25.2
-google-api-core>=2.15.0
+# Google Gemini API (faster and simpler than Vertex AI)
+google-generativeai>=0.8.0
 
 # Code analysis
 pygments==2.17.2

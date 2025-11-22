@@ -92,27 +92,28 @@ async def analyze_code(request: AnalysisRequest):
             language=request.language
         )
         
-        # Step 4: Store in MongoDB
-        db = get_database()
-        await db.analyses.insert_one({
-            "analysis_id": analysis_id,
-            "timestamp": datetime.utcnow(),
-            "repository": request.repository,
-            "pr_number": request.pr_number,
-            "file_path": request.file_path,
-            "language": request.language,
-            
-            # Security data
-            "vulnerabilities": [v.model_dump() for v in classified_vulns],
-            "severity_counts": severity_counts,
-            "total_vulnerabilities": len(classified_vulns),
+        # Step 4: Store in MongoDB (skip for playground to speed up)
+        if request.repository != 'playground':
+            db = get_database()
+            await db.analyses.insert_one({
+                "analysis_id": analysis_id,
+                "timestamp": datetime.utcnow(),
+                "repository": request.repository,
+                "pr_number": request.pr_number,
+                "file_path": request.file_path,
+                "language": request.language,
 
-            # Style data
-            "style_issues": [s.model_dump() for s in style_issues_list],
-            "style_categories": style_categories,
-            "total_style_issues": total_style_issues,
-        })
-        
+                # Security data
+                "vulnerabilities": [v.model_dump() for v in classified_vulns],
+                "severity_counts": severity_counts,
+                "total_vulnerabilities": len(classified_vulns),
+
+                # Style data
+                "style_issues": [s.model_dump() for s in style_issues_list],
+                "style_categories": style_categories,
+                "total_style_issues": total_style_issues,
+            })
+
         return result
 
     except Exception as e:

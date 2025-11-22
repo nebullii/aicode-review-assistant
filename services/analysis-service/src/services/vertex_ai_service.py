@@ -2,57 +2,37 @@ import os
 import json
 from typing import Dict
 
-# Try to import Google Cloud, but make it optional
+# Try to import Gemini API (faster than Vertex AI)
 try:
-    from google.cloud import aiplatform
-    from google.oauth2 import service_account
-    GOOGLE_CLOUD_AVAILABLE = True
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
 except ImportError:
-    GOOGLE_CLOUD_AVAILABLE = False
-    print("⚠️  Google Cloud libraries not available. Using mock responses.")
+    GEMINI_AVAILABLE = False
+    print("⚠️  Gemini API library not available. Using mock responses.")
 
 class VertexAIService:
-    """SCRUM-87: Google Vertex AI Integration for Code Analysis"""
-    
+    """SCRUM-87: Google Gemini API Integration for Code Analysis (Direct API - faster than Vertex AI)"""
+
     def __init__(self):
-        self.use_mock = not GOOGLE_CLOUD_AVAILABLE
+        self.use_mock = not GEMINI_AVAILABLE
+        self.model_name = "gemini-2.0-flash-exp"  # Latest fast model
 
         if not self.use_mock:
-            self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-            self.location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-            self.model_name = "gemini-2.5-flash"  # Updated to 2025 model (1.5 retired April 2025)
+            # Try Gemini API key first (faster, simpler)
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
 
-            # Check if project ID is set
-            if not self.project_id:
-                print("⚠️  GOOGLE_CLOUD_PROJECT not set. Using mock responses.")
-                self.use_mock = True
-                return
-
-            # Load credentials from file
-            # Try multiple paths: env var, Render secret files, local dev
-            key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            possible_paths = [
-                key_path,
-                "/etc/secrets/gcp-credentials.json",  # Render Secret Files
-                "/app/credentials/gcp-service-account.json",  # Local/Docker
-            ]
-
-            credentials_loaded = False
-            for path in possible_paths:
-                if path and os.path.exists(path):
-                    try:
-                        credentials = service_account.Credentials.from_service_account_file(path)
-                        aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
-                        print(f"✅ GCP credentials loaded from {path}")
-                        credentials_loaded = True
-                        break
-                    except Exception as e:
-                        print(f"⚠️  Failed to load GCP credentials from {path}: {e}")
-                        continue
-
-            if not credentials_loaded:
-                print(f"⚠️  Credentials file not found in any location. Checked: {[p for p in possible_paths if p]}")
-                print("⚠️  Using mock responses.")
+            if gemini_api_key:
+                try:
+                    genai.configure(api_key=gemini_api_key)
+                    print("✅ Gemini API configured (Direct API - Fast Mode)")
+                    self.use_mock = False
+                except Exception as e:
+                    print(f"⚠️  Failed to configure Gemini API: {e}")
+                    print("⚠️  Using mock responses.")
+                    self.use_mock = True
+            else:
+                print("⚠️  GEMINI_API_KEY not set. Using mock responses.")
+                print("⚠️  Get your free API key at: https://aistudio.google.com/app/apikey")
                 self.use_mock = True
     
     async def analyze_code_for_vulnerabilities(self, code: str, language: str = "javascript") -> Dict:
@@ -124,19 +104,17 @@ Example of correct format:
 """
         
         try:
-            import vertexai
-            from vertexai.generative_models import GenerativeModel, GenerationConfig
+            # Use Gemini API Direct (faster than Vertex AI)
+            model = genai.GenerativeModel(self.model_name)
 
-            # Initialize Vertex AI for this request
-            vertexai.init(project=self.project_id, location=self.location)
-
-            model = GenerativeModel(self.model_name)
-
-            # Configure for JSON output
-            generation_config = GenerationConfig(
-                response_mime_type="application/json",
-                temperature=0.2,  # Lower temperature for more consistent JSON
-            )
+            # Configure for JSON output with faster settings
+            generation_config = {
+                "temperature": 0.1,  # Lower = faster and more consistent
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+                "response_mime_type": "application/json",
+            }
 
             response = model.generate_content(
                 prompt,
@@ -189,7 +167,7 @@ Example of correct format:
             return result
 
         except Exception as e:
-            print(f"❌ Vertex AI Error: {str(e)}")
+            print(f"❌ Gemini API Error: {str(e)}")
             import gc
             gc.collect()
             return self._mock_analysis(code, language)
