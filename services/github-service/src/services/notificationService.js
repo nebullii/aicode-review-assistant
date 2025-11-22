@@ -547,7 +547,7 @@ class NotificationService {
 
   /**
    * Get reviewers for the PR
-   * Tries multiple strategies with fallbacks
+   * Fetches emails from our database (stored during OAuth)
    *
    * @param {Object} prData - PR data including requested_reviewers and repo_owner
    * @returns {Array} Array of reviewer objects with username and email
@@ -558,20 +558,29 @@ class NotificationService {
     try {
       console.log('[NOTIFICATION] Looking for reviewers...');
 
+      // Get database connection
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? {
+          rejectUnauthorized: false
+        } : false,
+      });
+
       // Strategy 1: Get requested reviewers from PR
       if (prData.requested_reviewers && prData.requested_reviewers.length > 0) {
         console.log(`[NOTIFICATION] Found ${prData.requested_reviewers.length} requested reviewer(s)`);
 
         for (const reviewer of prData.requested_reviewers) {
-          const email = await this.getGitHubUserEmail(reviewer.login);
-          if (email) {
+          const email = await this.getUserEmailFromDatabase(pool, reviewer.login);
+          if (email && !email.includes('noreply')) {
             reviewers.push({
               username: reviewer.login,
               email: email
             });
             console.log(`[NOTIFICATION]   ✓ ${reviewer.login}: ${email}`);
           } else {
-            console.log(`[NOTIFICATION]   ✗ ${reviewer.login}: email not found`);
+            console.log(`[NOTIFICATION]   ✗ ${reviewer.login}: no real email in database`);
           }
         }
       }
@@ -579,26 +588,20 @@ class NotificationService {
       // Strategy 2: Fallback to repository owner if no reviewers found
       if (reviewers.length === 0 && prData.repo_owner) {
         console.log('[NOTIFICATION] No requested reviewers, using repository owner');
-        const ownerEmail = await this.getGitHubUserEmail(prData.repo_owner);
-        if (ownerEmail) {
+        const ownerEmail = await this.getUserEmailFromDatabase(pool, prData.repo_owner);
+        if (ownerEmail && !ownerEmail.includes('noreply')) {
           reviewers.push({
             username: prData.repo_owner,
             email: ownerEmail
           });
           console.log(`[NOTIFICATION]   ✓ Owner ${prData.repo_owner}: ${ownerEmail}`);
+        } else {
+          console.log(`[NOTIFICATION]   ✗ Owner email not available (noreply or null)`);
         }
       }
 
-      // Strategy 3: Use default reviewer email from environment
-      if (reviewers.length === 0 && process.env.DEFAULT_REVIEWER_EMAIL) {
-        console.log('[NOTIFICATION] Using DEFAULT_REVIEWER_EMAIL from environment');
-        reviewers.push({
-          username: 'default',
-          email: process.env.DEFAULT_REVIEWER_EMAIL
-        });
-      }
-
       console.log(`[NOTIFICATION] Total reviewers found: ${reviewers.length}`);
+      await pool.end();
 
     } catch (error) {
       console.error('[NOTIFICATION] Error getting reviewers:', error.message);
@@ -608,70 +611,31 @@ class NotificationService {
   }
 
   /**
-   * Get GitHub user email via API
-   * Tries multiple methods to find user's email
+   * Get user email from our database
+   * Uses email stored during GitHub OAuth login
    *
-   * @param {string} username - GitHub username
-   * @returns {string|null} Email address or null if not found
+   * @param {Object} pool - PostgreSQL pool
+   * @param {string} githubUsername - GitHub username
+   * @returns {string|null} Email address or null
    */
-  async getGitHubUserEmail(username) {
-    if (!username) return null;
-
+  async getUserEmailFromDatabase(pool, githubUsername) {
     try {
-      const githubToken = process.env.GITHUB_TOKEN;
-      if (!githubToken) {
-        console.log('[NOTIFICATION] No GITHUB_TOKEN - cannot fetch user emails');
-        return `${username}@users.noreply.github.com`;
+      const result = await pool.query(
+        'SELECT email FROM users WHERE github_username = $1',
+        [githubUsername]
+      );
+
+      if (result.rows.length > 0 && result.rows[0].email) {
+        return result.rows[0].email;
       }
 
-      const headers = {
-        'Authorization': `token ${githubToken}`,
-        'Accept': 'application/vnd.github.v3+json'
-      };
-
-      // Method 1: Try to get public email from user profile
-      try {
-        const userResponse = await axios.get(`https://api.github.com/users/${username}`, { headers });
-
-        if (userResponse.data.email) {
-          console.log(`[NOTIFICATION]   Found email in profile for ${username}`);
-          return userResponse.data.email;
-        }
-      } catch (error) {
-        console.log(`[NOTIFICATION]   Profile lookup failed for ${username}: ${error.message}`);
-      }
-
-      // Method 2: Try to get email from recent commit events
-      try {
-        const eventsResponse = await axios.get(
-          `https://api.github.com/users/${username}/events/public`,
-          { headers }
-        );
-
-        // Look for email in recent commits
-        for (const event of eventsResponse.data) {
-          if (event.type === 'PushEvent' && event.payload.commits) {
-            for (const commit of event.payload.commits) {
-              if (commit.author && commit.author.email && !commit.author.email.includes('noreply')) {
-                console.log(`[NOTIFICATION]   Found email in commits for ${username}`);
-                return commit.author.email;
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.log(`[NOTIFICATION]   Events lookup failed for ${username}: ${error.message}`);
-      }
-
-      // Method 3: Fallback to noreply email
-      console.log(`[NOTIFICATION]   Using noreply email for ${username}`);
-      return `${username}@users.noreply.github.com`;
-
+      return null;
     } catch (error) {
-      console.error(`[NOTIFICATION] Failed to get email for ${username}:`, error.message);
+      console.error(`[NOTIFICATION] Database lookup failed for ${githubUsername}:`, error.message);
       return null;
     }
   }
+
 }
 
 // Export singleton instance

@@ -48,6 +48,21 @@ router.get('/github/callback', async (req, res) => {
 
     const githubUser = userResponse.data;
 
+    // Get user's primary email (even if private)
+    let userEmail = githubUser.email; // Try public email first
+    if (!userEmail) {
+      try {
+        const emailsResponse = await axios.get('https://api.github.com/user/emails', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        // Find primary email
+        const primaryEmail = emailsResponse.data.find(e => e.primary);
+        userEmail = primaryEmail ? primaryEmail.email : emailsResponse.data[0]?.email;
+      } catch (error) {
+        console.warn('Could not fetch user emails:', error.message);
+      }
+    }
+
     // Store or update user in database
     const result = await pool.query(
       `INSERT INTO users (github_id, github_username, email, avatar_url, github_token)
@@ -63,7 +78,7 @@ router.get('/github/callback', async (req, res) => {
       [
         githubUser.id,
         githubUser.login,
-        githubUser.email,
+        userEmail,
         githubUser.avatar_url,
         accessToken,
       ]
