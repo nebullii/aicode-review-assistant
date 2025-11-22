@@ -5,12 +5,11 @@ const commentFormatter = require('../utils/commentFormatter');
 const notificationService = require('../services/notificationService');
 const { Pool } = require('pg');
 
-// Database connection
+// Database connection with secure SSL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? {
-    rejectUnauthorized: false
-  } : false,
+  // Neon provides valid SSL certificates - verify them for security
+  ssl: process.env.NODE_ENV === 'production' ? true : false,
 });
 
 class WebhookController {

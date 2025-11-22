@@ -558,13 +558,12 @@ class NotificationService {
     try {
       console.log('[NOTIFICATION] Looking for reviewers...');
 
-      // Get database connection
+      // Get database connection with secure SSL
       const { Pool } = require('pg');
       const pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? {
-          rejectUnauthorized: false
-        } : false,
+        // Neon provides valid SSL certificates - verify them for security
+        ssl: process.env.NODE_ENV === 'production' ? true : false,
       });
 
       // Strategy 1: Get requested reviewers from PR
