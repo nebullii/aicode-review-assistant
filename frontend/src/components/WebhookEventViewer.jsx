@@ -1,27 +1,87 @@
 import { useState, useEffect } from 'react';
 import { webhookAPI } from '../services/api';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_SERVICE_URL;
 
 const WebhookEventViewer = () => {
-  const [events, setEvents] = useState([]);
+  const [prData, setPrData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    fetchEvents();
+    fetchPRData();
   }, [currentPage]);
 
-  const fetchEvents = async () => {
+  const fetchPRData = async () => {
     try {
       setIsLoading(true);
-      const data = await webhookAPI.getEvents(itemsPerPage, (currentPage - 1) * itemsPerPage);
-      setEvents(data.events || []);
-      setTotalCount(data.total || 0);
+
+      // Fetch webhook events and analysis data
+      const [webhookData, analysisData] = await Promise.all([
+        webhookAPI.getEvents(50, 0),
+        axios.get(`${API_URL}/api/analysis/history?limit=50`, { withCredentials: true })
+      ]);
+
+      const events = webhookData.events || [];
+      const analyses = analysisData.data.analyses || [];
+
+      // Group analyses by PR
+      const analysisMap = new Map();
+      analyses.forEach(analysis => {
+        if (analysis.repository === 'playground') return;
+        const key = `${analysis.repository}#${analysis.pr_number}`;
+
+        if (!analysisMap.has(key)) {
+          analysisMap.set(key, {
+            total_issues: 0,
+            highest_severity: 'low',
+            severity_counts: { critical: 0, high: 0, medium: 0, low: 0 }
+          });
+        }
+
+        const data = analysisMap.get(key);
+        data.total_issues += (analysis.total_vulnerabilities || 0);
+
+        const counts = analysis.severity_counts || {};
+        data.severity_counts.critical += (counts.critical || 0);
+        data.severity_counts.high += (counts.high || 0);
+        data.severity_counts.medium += (counts.medium || 0);
+        data.severity_counts.low += (counts.low || 0);
+
+        if (data.severity_counts.critical > 0) data.highest_severity = 'critical';
+        else if (data.severity_counts.high > 0) data.highest_severity = 'high';
+        else if (data.severity_counts.medium > 0) data.highest_severity = 'medium';
+      });
+
+      // Combine webhook events with analysis data
+      const combined = events.map(event => {
+        const key = `${event.repository_name}#${event.pr_number}`;
+        const analysis = analysisMap.get(key) || { total_issues: 0, highest_severity: 'low', severity_counts: {} };
+
+        return {
+          id: event.id,
+          repository: event.repository_name,
+          branch: event.pr_title?.split(':')[0] || 'main',
+          author: event.sender_username,
+          pr_number: event.pr_number,
+          pr_url: event.pr_url,
+          issues_found: analysis.total_issues,
+          severity: analysis.highest_severity,
+          severity_counts: analysis.severity_counts,
+          status: event.action === 'closed' ? 'Closed' : event.action === 'opened' ? 'Waiting for review' : 'In progress',
+          timestamp: event.received_at
+        };
+      });
+
+      setPrData(combined);
+      setTotalCount(combined.length);
       setError(null);
     } catch (err) {
-      setError('Failed to load webhook events');
+      setError('Failed to load PR data');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -54,7 +114,7 @@ const WebhookEventViewer = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
         <div className="px-7 py-5 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Recent Webhook Events
+            Recent Pull Requests
           </h3>
         </div>
         <div className="p-7">
@@ -73,7 +133,7 @@ const WebhookEventViewer = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
         <div className="px-7 py-5 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Recent Webhook Events
+            Recent Pull Requests
           </h3>
         </div>
         <div className="p-7">
@@ -90,7 +150,7 @@ const WebhookEventViewer = () => {
       <div className="px-7 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Recent Webhook Events
+            Recent Pull Requests
           </h3>
           {totalCount > 0 && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -101,59 +161,77 @@ const WebhookEventViewer = () => {
         <button
           onClick={() => {
             setCurrentPage(1);
-            fetchEvents();
+            fetchPRData();
           }}
           className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
         >
           Refresh
         </button>
       </div>
-      <div className="divide-y divide-gray-200 dark:divide-gray-700">
-        {events.length === 0 ? (
+      <div className="overflow-x-auto">
+        {prData.length === 0 ? (
           <div className="p-6 text-center">
             <p className="text-gray-500 dark:text-gray-400">
-              No webhook events yet. Create a PR to see events here.
+              No pull requests yet. Create a PR to see it here.
             </p>
           </div>
         ) : (
-          events.map((event) => (
-            <div
-              key={event.id}
-              className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">{getEventIcon(event.event_type, event.action)}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {event.action} pull request #{event.pr_number}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {event.pr_title}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        {event.repository_name} • by {event.sender_username}
-                      </p>
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Repo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Branch</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Author</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Issues</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Severity</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {prData.map((pr) => (
+                <tr key={pr.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    {pr.repository}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {pr.branch}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={`https://github.com/${pr.author}.png?size=32`}
+                        alt={pr.author}
+                        className="w-6 h-6 rounded-full"
+                      />
+                      <span className="text-sm text-gray-900 dark:text-white">{pr.author}</span>
                     </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-500 whitespace-nowrap">
-                      {formatTimestamp(event.received_at)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {pr.issues_found}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                      pr.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+                      pr.severity === 'high' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
+                      pr.severity === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
+                      'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
+                    }`}>
+                      {pr.severity}
                     </span>
-                  </div>
-                  {event.pr_url && (
-                    <a
-                      href={event.pr_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 inline-block"
-                    >
-                      View on GitHub →
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      pr.status === 'Closed' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-400' :
+                      pr.status === 'Waiting for review' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400' :
+                      'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400'
+                    }`}>
+                      {pr.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
