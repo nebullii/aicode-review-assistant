@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { webhookAPI } from '../services/api';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_SERVICE_URL;
+const ANALYSIS_SERVICE_URL = import.meta.env.VITE_ANALYSIS_SERVICE_URL;
 
 const WebhookEventViewer = () => {
   const [prData, setPrData] = useState([]);
@@ -16,13 +16,23 @@ const WebhookEventViewer = () => {
     fetchPRData();
   }, [currentPage]);
 
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      localStorage.removeItem('pr_analysis_cache');
+      fetchPRData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [currentPage]);
+
   const fetchPRData = async () => {
     try {
       setIsLoading(true);
 
-      // Check cache first (5 minute cache)
+      // Check cache first (1 minute cache)
       const CACHE_KEY = 'pr_analysis_cache';
-      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+      const CACHE_DURATION = 1 * 60 * 1000; // 1 minute
       const cached = localStorage.getItem(CACHE_KEY);
 
       let analysisData = null;
@@ -41,7 +51,7 @@ const WebhookEventViewer = () => {
       // Fetch analysis data if not cached
       if (!analysisData) {
         try {
-          analysisData = await axios.get(`${API_URL}/api/analysis/history?limit=50`, { withCredentials: true });
+          analysisData = await axios.get(`${ANALYSIS_SERVICE_URL}/api/analysis/history?limit=50`, { withCredentials: true });
           // Cache the response
           localStorage.setItem(CACHE_KEY, JSON.stringify({
             data: analysisData.data,
@@ -193,6 +203,7 @@ const WebhookEventViewer = () => {
         </div>
         <button
           onClick={() => {
+            localStorage.removeItem('pr_analysis_cache');
             setCurrentPage(1);
             fetchPRData();
           }}
@@ -217,6 +228,7 @@ const WebhookEventViewer = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Author</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Vulnerabilities</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -276,6 +288,9 @@ const WebhookEventViewer = () => {
                     }`}>
                       {pr.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {formatTimestamp(pr.timestamp)}
                   </td>
                 </tr>
               ))}
