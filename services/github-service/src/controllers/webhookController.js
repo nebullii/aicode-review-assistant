@@ -127,20 +127,10 @@ class WebhookController {
               });
             });
 
-            // Determine which vulnerabilities to post based on PR size
-            let vulnsToPost;
-            if (pythonFiles.length === 1) {
-              // Small PR (1 file): Post ALL findings
-              vulnsToPost = analysisResult.vulnerabilities;
-              console.log(`  [SMALL PR] Posting all ${vulnsToPost.length} vulnerabilities (PR has only 1 file)`);
-            } else {
-              // Large PR (2+ files): Only post CRITICAL and HIGH severity
-              vulnsToPost = analysisResult.vulnerabilities.filter(vuln => {
-                const severity = vuln.severity?.toLowerCase();
-                return severity === 'critical' || severity === 'high';
-              });
-              console.log(`  [LARGE PR] Posting ${vulnsToPost.length} critical/high severity issues (${analysisResult.vulnerabilities.length} total found)`);
-            }
+            // Determine which vulnerabilities to post
+            // User requested ALL analysis even for big PRs
+            const vulnsToPost = analysisResult.vulnerabilities;
+            console.log(`  [PR ANALYSIS] Posting all ${vulnsToPost.length} vulnerabilities`);
 
             // Post to GitHub if there are issues to report
             if (vulnsToPost.length > 0) {

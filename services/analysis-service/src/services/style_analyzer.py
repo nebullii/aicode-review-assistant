@@ -10,7 +10,7 @@ class StyleAnalyzer:
     Analyzes Python code for style violations, naming conventions, and complexity
     """
     
-    def analyze_style(self, code: str, file_path: str = "temp.py") -> Dict:
+    def analyze_style(self, code: str, file_path: str = "temp.py", min_severity: str = "medium") -> Dict:
         """
         Analyze Python code for style issues
         Returns: Dictionary with style violations
@@ -44,10 +44,27 @@ class StyleAnalyzer:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
         
+        # Filter issues by severity
+        severity_levels = {
+            "critical": 5,
+            "high": 4,
+            "medium": 3,
+            "low": 2,
+            "info": 1
+        }
+        
+        min_level = severity_levels.get(min_severity.lower(), 3) # Default to medium (3)
+        
+        filtered_issues = [
+            issue for issue in issues 
+            if severity_levels.get(issue.get("severity", "low"), 2) >= min_level
+        ]
+        
         return {
-            "total_issues": len(issues),
-            "issues": issues,
-            "categories": self._categorize_issues(issues)
+            "total_issues": len(filtered_issues),
+            "issues": filtered_issues,
+            "categories": self._categorize_issues(filtered_issues),
+            "ignored_count": len(issues) - len(filtered_issues)
         }
     
     def _check_pep8(self, file_path: str) -> List[Dict]:
