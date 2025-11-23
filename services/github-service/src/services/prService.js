@@ -62,7 +62,13 @@ class PRService {
    */
   async getFileContent(file, githubToken) {
     try {
-      // Use the raw_url to get file content
+      // For "added" files, raw_url may not work - extract content from patch
+      if (file.status === 'added' && file.patch) {
+        console.log(`[PATCH] Extracting content from patch for added file: ${file.filename}`);
+        return this.extractContentFromPatch(file.patch);
+      }
+
+      // For modified/renamed files, use raw_url
       const response = await axios.get(file.raw_url, {
         headers: {
           'Authorization': `Bearer ${githubToken}`,
@@ -73,8 +79,46 @@ class PRService {
       return response.data;
     } catch (error) {
       console.error(`[ERROR] Failed to fetch ${file.filename} (status: ${file.status}): ${error.message}`);
+
+      // Fallback: try extracting from patch if available
+      if (file.patch) {
+        console.log(`[FALLBACK] Attempting to extract content from patch`);
+        try {
+          return this.extractContentFromPatch(file.patch);
+        } catch (patchError) {
+          console.error(`[ERROR] Failed to extract from patch: ${patchError.message}`);
+        }
+      }
+
       throw error;
     }
+  }
+
+  /**
+   * Extract file content from unified diff patch
+   * For "added" files, the patch contains all the file content
+   */
+  extractContentFromPatch(patch) {
+    const lines = patch.split('\n');
+    const contentLines = [];
+
+    for (const line of lines) {
+      // Skip diff headers (@@, +++, ---)
+      if (line.startsWith('@@') || line.startsWith('+++') || line.startsWith('---')) {
+        continue;
+      }
+
+      // For added files, lines start with '+'
+      if (line.startsWith('+')) {
+        contentLines.push(line.substring(1)); // Remove the '+' prefix
+      } else if (line.startsWith(' ')) {
+        // Context lines (unchanged, but included in diff)
+        contentLines.push(line.substring(1));
+      }
+      // Skip lines starting with '-' (deletions)
+    }
+
+    return contentLines.join('\n');
   }
 }
 
