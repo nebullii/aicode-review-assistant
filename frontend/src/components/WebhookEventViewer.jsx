@@ -262,26 +262,30 @@ const WebhookEventViewer = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-2">
                       {pr.severity_counts.critical > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400">
-                          {pr.severity_counts.critical} Critical
-                        </span>
+                        <div className="inline-flex items-center rounded overflow-hidden text-xs font-medium">
+                          <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">Critical</span>
+                          <span className="px-2 py-1 bg-red-600 dark:bg-red-700 text-white">{pr.severity_counts.critical}</span>
+                        </div>
                       )}
                       {pr.severity_counts.high > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400">
-                          {pr.severity_counts.high} High
-                        </span>
+                        <div className="inline-flex items-center rounded overflow-hidden text-xs font-medium">
+                          <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300">High</span>
+                          <span className="px-2 py-1 bg-orange-600 dark:bg-orange-700 text-white">{pr.severity_counts.high}</span>
+                        </div>
                       )}
                       {pr.severity_counts.medium > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400">
-                          {pr.severity_counts.medium} Medium
-                        </span>
+                        <div className="inline-flex items-center rounded overflow-hidden text-xs font-medium">
+                          <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">Medium</span>
+                          <span className="px-2 py-1 bg-yellow-600 dark:bg-yellow-700 text-white">{pr.severity_counts.medium}</span>
+                        </div>
                       )}
                       {pr.severity_counts.low > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400">
-                          {pr.severity_counts.low} Low
-                        </span>
+                        <div className="inline-flex items-center rounded overflow-hidden text-xs font-medium">
+                          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">Low</span>
+                          <span className="px-2 py-1 bg-blue-600 dark:bg-blue-700 text-white">{pr.severity_counts.low}</span>
+                        </div>
                       )}
                       {pr.issues_found === 0 && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">No issues</span>
