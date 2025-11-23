@@ -51,7 +51,7 @@ const WebhookEventViewer = () => {
       // Fetch analysis data if not cached
       if (!analysisData) {
         try {
-          analysisData = await axios.get(`${ANALYSIS_SERVICE_URL}/api/analysis/history?limit=50`, { withCredentials: true });
+          analysisData = await axios.get(`${ANALYSIS_SERVICE_URL}/api/analysis/history?limit=50`);
           // Cache the response
           localStorage.setItem(CACHE_KEY, JSON.stringify({
             data: analysisData.data,
