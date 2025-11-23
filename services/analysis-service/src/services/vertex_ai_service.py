@@ -13,7 +13,7 @@ except ImportError:
 class VertexAIService:
     """SCRUM-87: Google Gemini API Integration for Code Analysis (Direct API - faster than Vertex AI)"""
 
-    def __init__(self(self):
+    def __init__(self):
         self.use_mock = not GEMINI_AVAILABLE
         self.model_name = "gemini-2.0-flash-exp"  # Latest fast model
         
