@@ -32,12 +32,18 @@ class NotificationService {
       }
 
       // Create transporter
+      // Create transporter with timeout settings
       this.transporter = nodemailer.createTransport({
         service: process.env.EMAIL_SERVICE || 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD
-        }
+        },
+        // Fix for Render/Cloud timeouts
+        secure: true, // Use SSL (Port 465)
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000,
+        socketTimeout: 10000
       });
 
       this.isConfigured = true;
@@ -406,9 +412,9 @@ class NotificationService {
             ${hasCritical ? '<div style="background: #ffeef0; border: 2px solid #d73a49; border-radius: 6px; padding: 15px; margin-bottom: 20px;"><strong>⚠️ Action Required:</strong> This PR contains critical security vulnerabilities that need immediate attention.</div>' : ''}
 
             ${total_vulnerabilities === 0 && total_style_issues === 0 ?
-              '<div class="no-issues"><div class="no-issues-icon">✅</div><h3>Great Job!</h3><p>No security vulnerabilities or style issues detected.</p></div>' :
-              '<div style="text-align: center; padding: 30px 20px; background: #f6f8fa; border-radius: 8px; margin: 20px 0;"><p style="font-size: 16px; color: #24292e; margin-bottom: 15px;"><strong>AI analysis is complete!</strong></p><p style="color: #586069; margin: 0;">All detailed findings have been posted as comments directly on the pull request.</p></div>'
-            }
+        '<div class="no-issues"><div class="no-issues-icon">✅</div><h3>Great Job!</h3><p>No security vulnerabilities or style issues detected.</p></div>' :
+        '<div style="text-align: center; padding: 30px 20px; background: #f6f8fa; border-radius: 8px; margin: 20px 0;"><p style="font-size: 16px; color: #24292e; margin-bottom: 15px;"><strong>AI analysis is complete!</strong></p><p style="color: #586069; margin: 0;">All detailed findings have been posted as comments directly on the pull request.</p></div>'
+      }
 
             <!-- CTA Button -->
             <div style="text-align: center;">

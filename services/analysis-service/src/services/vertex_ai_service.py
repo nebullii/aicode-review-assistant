@@ -13,9 +13,22 @@ except ImportError:
 class VertexAIService:
     """SCRUM-87: Google Gemini API Integration for Code Analysis (Direct API - faster than Vertex AI)"""
 
-    def __init__(self):
+    def __init__(self(self):
         self.use_mock = not GEMINI_AVAILABLE
         self.model_name = "gemini-2.0-flash-exp"  # Latest fast model
+        
+        # Initialize Redis for caching
+        import redis
+        try:
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            self.redis_client = redis.from_url(redis_url, decode_responses=True)
+            # Test connection
+            self.redis_client.ping()
+            print("✅ Redis cache connected")
+            self.use_cache = True
+        except Exception as e:
+            print(f"⚠️  Redis cache not available: {e}")
+            self.use_cache = False
 
         if not self.use_mock:
             # Try Gemini API key first (faster, simpler)
@@ -35,24 +48,40 @@ class VertexAIService:
                 print("⚠️  Get your free API key at: https://aistudio.google.com/app/apikey")
                 self.use_mock = True
     
-    async def analyze_code_for_vulnerabilities(self, code: str, language: str = "javascript") -> Dict:
+    async def analyze_code_for_vulnerabilities(self, code: str, language: str = "javascript", filename: str = "unknown") -> Dict:
         """
         Analyze code using Vertex AI to detect security vulnerabilities
         SCRUM-87: Security Vulnerability Detection
         """
+        
+        # Check cache first
+        if self.use_cache:
+            import hashlib
+            # Create a unique hash for this code content
+            code_hash = hashlib.sha256(code.encode('utf-8')).hexdigest()
+            cache_key = f"analysis:{code_hash}"
+            
+            try:
+                cached_result = self.redis_client.get(cache_key)
+                if cached_result:
+                    print(f"⚡ Cache hit for {filename}")
+                    return json.loads(cached_result)
+            except Exception as e:
+                print(f"⚠️  Cache read failed: {e}")
 
         # Use mock data if Google Cloud not available
         if self.use_mock:
             return self._mock_analysis(code, language)
 
-        # Limit code size to prevent memory issues (max 10,000 characters)
-        # For larger files, analyze only the first 10k characters
-        MAX_CODE_LENGTH = 10000
+        # Limit code size to prevent memory issues (max 100,000 characters)
+        # For larger files, analyze only the first 100k characters
+        MAX_CODE_LENGTH = 100000
         if len(code) > MAX_CODE_LENGTH:
             print(f"⚠️  Code too long ({len(code)} chars), analyzing first {MAX_CODE_LENGTH} characters")
             code = code[:MAX_CODE_LENGTH]
         
         prompt = f"""You are a security expert code reviewer. Analyze the following {language} code for security vulnerabilities.
+File context: {filename}
 
 Focus on detecting:
 1. SQL Injection
@@ -159,6 +188,18 @@ Example of correct format:
                 "vulnerabilities": vulnerabilities if isinstance(vulnerabilities, list) else [],
                 "raw_response": response.text
             }
+            
+            # Cache the result for 24 hours (86400 seconds)
+            if self.use_cache:
+                try:
+                    self.redis_client.setex(
+                        cache_key,
+                        86400,
+                        json.dumps(result)
+                    )
+                    print(f"💾 Cached result for {filename}")
+                except Exception as e:
+                    print(f"⚠️  Cache write failed: {e}")
 
             # Force garbage collection to free memory
             import gc
