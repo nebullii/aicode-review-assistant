@@ -5,10 +5,47 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get user's GitHub repositories
+// Get user's GitHub repositories (from local database)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    // Get user's GitHub token from database
+    // Fetch repositories from database
+    const result = await pool.query(
+      'SELECT * FROM repositories WHERE user_id = $1 ORDER BY updated_at DESC',
+      [req.user.user_id]
+    );
+
+    const repositories = result.rows.map((repo) => ({
+      id: repo.id,
+      github_id: repo.github_id,
+      name: repo.name,
+      full_name: repo.full_name,
+      description: repo.description,
+      private: false, // We might want to store this in DB if needed, defaulting to false for now
+      html_url: `https://github.com/${repo.full_name}`,
+      language: 'Unknown', // We might want to store this too
+      stargazers_count: 0, // We might want to store this too
+      updated_at: repo.updated_at,
+      is_connected: repo.is_active, // is_active means connected/monitored
+    }));
+
+    res.json({
+      success: true,
+      count: repositories.length,
+      repositories: repositories,
+    });
+  } catch (error) {
+    console.error('Error fetching repositories:', error);
+    res.status(500).json({
+      error: 'Failed to fetch repositories',
+      details: error.message,
+    });
+  }
+});
+
+// Sync repositories from GitHub
+router.post('/sync', authenticateToken, async (req, res) => {
+  try {
+    // Get user's GitHub token
     const userResult = await pool.query(
       'SELECT github_token FROM users WHERE id = $1',
       [req.user.user_id]
@@ -19,18 +56,6 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const githubToken = userResult.rows[0].github_token;
-
-    // Get already connected repositories for this user
-    const connectedRepos = await pool.query(
-      'SELECT id, github_id FROM repositories WHERE user_id = $1',
-      [req.user.user_id]
-    );
-    const connectedGithubIds = connectedRepos.rows.map(r => r.github_id);
-    // Create a map of github_id to database UUID
-    const githubIdToDbId = {};
-    connectedRepos.rows.forEach(r => {
-      githubIdToDbId[r.github_id] = r.id;
-    });
 
     // Fetch repositories from GitHub API
     const response = await axios.get('https://api.github.com/user/repos', {
@@ -45,33 +70,51 @@ router.get('/', authenticateToken, async (req, res) => {
       },
     });
 
-    // Filter out archived and forked repos
-    const repositories = response.data
-      .filter((repo) => !repo.archived && !repo.fork)
-      .slice(0, 20)
-      .map((repo) => ({
-        id: githubIdToDbId[repo.id] || null, // Database UUID (null if not connected)
-        github_id: repo.id,
-        name: repo.name,
-        full_name: repo.full_name,
-        description: repo.description,
-        private: repo.private,
-        html_url: repo.html_url,
-        language: repo.language || 'Unknown',
-        stargazers_count: repo.stargazers_count,
-        updated_at: repo.updated_at,
-        is_connected: connectedGithubIds.includes(repo.id),
-      }));
+    // Filter out archived repos
+    const githubRepos = response.data.filter((repo) => !repo.archived);
+    let syncedCount = 0;
+
+    // Upsert each repository
+    for (const repo of githubRepos) {
+      // Check if it exists
+      const existing = await pool.query(
+        'SELECT id, user_id FROM repositories WHERE github_id = $1',
+        [repo.id]
+      );
+
+      if (existing.rows.length > 0) {
+        // If it belongs to this user, update it
+        if (existing.rows[0].user_id === req.user.user_id) {
+          await pool.query(
+            `UPDATE repositories 
+             SET name = $1, full_name = $2, description = $3, updated_at = NOW()
+             WHERE id = $4`,
+            [repo.name, repo.full_name, repo.description, existing.rows[0].id]
+          );
+          syncedCount++;
+        }
+        // If it belongs to another user, skip it (enforced by unique constraint on github_id)
+      } else {
+        // Insert new repository (default is_active = false for sync)
+        await pool.query(
+          `INSERT INTO repositories (user_id, github_id, name, full_name, description, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, false, NOW(), NOW())`,
+          [req.user.user_id, repo.id, repo.name, repo.full_name, repo.description]
+        );
+        syncedCount++;
+      }
+    }
 
     res.json({
       success: true,
-      count: repositories.length,
-      repositories: repositories,
+      message: `Synced ${syncedCount} repositories`,
+      count: syncedCount
     });
+
   } catch (error) {
-    console.error('Error fetching repositories:', error.response?.data || error.message);
+    console.error('Error syncing repositories:', error.response?.data || error.message);
     res.status(500).json({
-      error: 'Failed to fetch repositories',
+      error: 'Failed to sync repositories',
       details: error.message,
     });
   }
@@ -87,8 +130,9 @@ router.post('/connect', authenticateToken, async (req, res) => {
 
   try {
     // Check if repository already connected
+    // Check if repository already connected (is_active = true)
     const existingRepo = await pool.query(
-      'SELECT id FROM repositories WHERE user_id = $1 AND github_id = $2',
+      'SELECT id FROM repositories WHERE user_id = $1 AND github_id = $2 AND is_active = true',
       [req.user.user_id, github_id]
     );
 
@@ -125,22 +169,18 @@ router.post('/connect', authenticateToken, async (req, res) => {
       console.error('Webhook registration failed:', webhookError.response?.data || webhookError.message);
     }
 
-    // Insert repository with webhook_id
+    // Upsert repository with webhook_id and set is_active = true
     const repoResult = await pool.query(
       `INSERT INTO repositories (user_id, github_id, name, full_name, description, is_active, webhook_id)
        VALUES ($1, $2, $3, $4, $5, true, $6)
+       ON CONFLICT (github_id) 
+       DO UPDATE SET is_active = true, webhook_id = $6, updated_at = NOW()
        RETURNING id, github_id, name, full_name, is_active, webhook_id`,
       [req.user.user_id, github_id, name, full_name, description, webhookId]
     );
 
     const repository = repoResult.rows[0];
-
-    // Create default configuration
-    await pool.query(
-        'UPDATE repositories SET webhook_id = $1 WHERE id = $2',
-        [webhookId, repository.id]
-    );
-    console.log(`✓ Webhook ID ${webhookId} saved to database for repo ${repository.id}`);
+    console.log(`✓ Repository ${repository.full_name} connected (ID: ${repository.id})`);
 
 
     res.json({
@@ -234,8 +274,11 @@ router.post('/disconnect', authenticateToken, async (req, res) => {
       }
     }
 
-    // Delete repository from database (cascade will delete related records)
-    await pool.query('DELETE FROM repositories WHERE id = $1', [repository_id]);
+    // Soft delete: set is_active = false and remove webhook_id
+    await pool.query(
+      'UPDATE repositories SET is_active = false, webhook_id = NULL, updated_at = NOW() WHERE id = $1',
+      [repository_id]
+    );
 
     res.json({
       success: true,

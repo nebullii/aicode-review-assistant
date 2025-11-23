@@ -64,6 +64,12 @@ export const repositoryAPI = {
     return response.data;
   },
 
+  // Sync repositories from GitHub
+  syncRepositories: async () => {
+    const response = await api.post('/api/repositories/sync');
+    return response.data;
+  },
+
   // Connect a repository
   connectRepository: async (repoData) => {
     const response = await api.post('/api/repositories/connect', repoData);
