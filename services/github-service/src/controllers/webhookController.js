@@ -127,17 +127,26 @@ class WebhookController {
               });
             });
 
-            // Filter for CRITICAL and HIGH severity only for GitHub comments
-            const criticalHighVulns = analysisResult.vulnerabilities.filter(vuln => {
-              const severity = vuln.severity?.toLowerCase();
-              return severity === 'critical' || severity === 'high';
-            });
+            // Determine which vulnerabilities to post based on PR size
+            let vulnsToPost;
+            if (pythonFiles.length === 1) {
+              // Small PR (1 file): Post ALL findings
+              vulnsToPost = analysisResult.vulnerabilities;
+              console.log(`  [SMALL PR] Posting all ${vulnsToPost.length} vulnerabilities (PR has only 1 file)`);
+            } else {
+              // Large PR (2+ files): Only post CRITICAL and HIGH severity
+              vulnsToPost = analysisResult.vulnerabilities.filter(vuln => {
+                const severity = vuln.severity?.toLowerCase();
+                return severity === 'critical' || severity === 'high';
+              });
+              console.log(`  [LARGE PR] Posting ${vulnsToPost.length} critical/high severity issues (${analysisResult.vulnerabilities.length} total found)`);
+            }
 
-            // Only post to GitHub if there are critical/high severity issues
-            if (criticalHighVulns.length > 0) {
+            // Post to GitHub if there are issues to report
+            if (vulnsToPost.length > 0) {
               try {
                 const batchedComment = commentFormatter.formatBatchedSecurityComment(
-                  criticalHighVulns,
+                  vulnsToPost,
                   file.filename
                 );
 
@@ -150,7 +159,7 @@ class WebhookController {
                     githubToken
                   );
 
-                  console.log(`  [SECURITY] Posted critical/high severity comment (${criticalHighVulns.length}/${analysisResult.vulnerabilities.length} issues)`);
+                  console.log(`  [SECURITY] Posted comment with ${vulnsToPost.length} issues to GitHub`);
                 }
               } catch (error) {
                 console.error(`  [WARN] Failed to post batched security comment:`, error.message);

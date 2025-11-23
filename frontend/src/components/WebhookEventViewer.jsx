@@ -67,11 +67,14 @@ const WebhookEventViewer = () => {
       const events = webhookData.events || [];
       const analyses = analysisData.data.analyses || [];
 
+      console.log(`[DEBUG] Fetched ${events.length} webhook events and ${analyses.length} analyses`);
+
       // Group analyses by PR
       const analysisMap = new Map();
       analyses.forEach(analysis => {
         if (analysis.repository === 'playground') return;
         const key = `${analysis.repository}#${analysis.pr_number}`;
+        console.log(`[DEBUG] Analysis key: ${key}, vulnerabilities: ${analysis.total_vulnerabilities}`);
 
         if (!analysisMap.has(key)) {
           analysisMap.set(key, {
@@ -99,6 +102,7 @@ const WebhookEventViewer = () => {
       const combined = events.map(event => {
         const key = `${event.repository_name}#${event.pr_number}`;
         const analysis = analysisMap.get(key) || { total_issues: 0, highest_severity: 'low', severity_counts: {} };
+        console.log(`[DEBUG] Event key: ${key}, matched analysis:`, analysis.total_issues > 0 ? 'YES' : 'NO');
 
         return {
           id: event.id,
