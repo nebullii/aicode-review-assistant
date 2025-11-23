@@ -101,8 +101,12 @@ const WebhookEventViewer = () => {
       // Combine webhook events with analysis data
       const combined = events.map(event => {
         const key = `${event.repository_name}#${event.pr_number}`;
-        const analysis = analysisMap.get(key) || { total_issues: 0, highest_severity: 'low', severity_counts: {} };
-        console.log(`[DEBUG] Event key: ${key}, matched analysis:`, analysis.total_issues > 0 ? 'YES' : 'NO');
+        const analysis = analysisMap.get(key) || {
+          total_issues: 0,
+          highest_severity: 'low',
+          severity_counts: { critical: 0, high: 0, medium: 0, low: 0 }
+        };
+        console.log(`[DEBUG] Event key: ${key}, matched analysis:`, analysis.total_issues > 0 ? 'YES' : 'NO', 'counts:', analysis.severity_counts);
 
         return {
           id: event.id,
