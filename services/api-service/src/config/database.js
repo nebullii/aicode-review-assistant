@@ -3,7 +3,8 @@ const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   // Neon provides valid SSL certificates - verify them for security
-  ssl: process.env.NODE_ENV === 'production' ? true : false,
+  // But if we are running in docker-compose production (local container), SSL is not supported
+  ssl: (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL.includes('postgres:5432')) ? true : false,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Increased to 10 seconds for Render

@@ -569,7 +569,8 @@ class NotificationService {
       const pool = new Pool({
         connectionString: process.env.DATABASE_URL,
         // Neon provides valid SSL certificates - verify them for security
-        ssl: process.env.NODE_ENV === 'production' ? true : false,
+        // But if we are running in docker-compose production (local container), SSL is not supported
+        ssl: (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL.includes('postgres:5432')) ? true : false,
       });
 
       // Strategy 1: Get requested reviewers from PR
