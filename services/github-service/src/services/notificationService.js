@@ -41,9 +41,9 @@ class NotificationService {
         },
         // Fix for Render/Cloud timeouts
         secure: true, // Use SSL (Port 465)
-        connectionTimeout: 10000, // 10 seconds
-        greetingTimeout: 10000,
-        socketTimeout: 10000
+        connectionTimeout: 30000, // 30 seconds
+        greetingTimeout: 30000,
+        socketTimeout: 30000
       });
 
       this.isConfigured = true;
