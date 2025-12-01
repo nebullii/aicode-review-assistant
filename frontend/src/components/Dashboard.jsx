@@ -17,25 +17,59 @@ const Dashboard = () => {
   })
 
   useEffect(() => {
-    fetchAnalyses()
-  }, [])
+    const loadAnalyses = async () => {
+      try {
+        setLoading(true);
+        const cachedAnalyses = localStorage.getItem('prAnalysesCache');
+        if (cachedAnalyses) {
+          const parsedAnalyses = JSON.parse(cachedAnalyses);
+          setAnalyses(parsedAnalyses);
+          updateStats(parsedAnalyses); // Update stats from cache
+        }
+      } catch (error) {
+        console.error('Failed to load cached analyses:', error);
+        // Clear corrupted cache
+        localStorage.removeItem('prAnalysesCache');
+      } finally {
+        setLoading(false);
+        // Always fetch fresh data in the background
+        await fetchAnalyses(true);
+      }
+    };
 
-  const fetchAnalyses = async () => {
+    loadAnalyses();
+  }, []);
+
+  const updateStats = (analysesData) => {
+    const totalStats = analysesData.reduce((acc, pr) => ({
+      critical: acc.critical + pr.severity_counts.critical,
+      high: acc.high + pr.severity_counts.high,
+      medium: acc.medium + pr.severity_counts.medium,
+      low: acc.low + pr.severity_counts.low,
+      total: acc.total + pr.total_vulnerabilities
+    }), { critical: 0, high: 0, medium: 0, low: 0, total: 0 });
+    setStats(totalStats);
+  };
+
+  const fetchAnalyses = async (isBackgroundFetch = false) => {
     try {
-      setLoading(true)
-      const response = await axios.get(`${API_URL}/api/analysis/history?limit=50`, {
+      if (!isBackgroundFetch) {
+        setLoading(true);
+      }
+      // Fetch a smaller, more relevant set of recent analyses
+      const response = await axios.get(`${API_URL}/api/analysis/history?limit=20`, {
         withCredentials: true
-      })
+      });
 
-      const analysesData = response.data.analyses || []
+      const analysesData = response.data.analyses || [];
 
       // Group by PR (repository + pr_number)
-      const prMap = new Map()
+      const prMap = new Map();
 
       analysesData.forEach(analysis => {
-        if (analysis.repository === 'playground') return // Skip playground
+        if (analysis.repository === 'playground') return;
 
-        const prKey = `${analysis.repository}#${analysis.pr_number}`
+        const prKey = `${analysis.repository}#${analysis.pr_number}`;
 
         if (!prMap.has(prKey)) {
           prMap.set(prKey, {
@@ -45,42 +79,42 @@ const Dashboard = () => {
             files_count: 0,
             total_vulnerabilities: 0,
             severity_counts: { critical: 0, high: 0, medium: 0, low: 0 }
-          })
+          });
         }
 
-        const pr = prMap.get(prKey)
-        pr.files_count++
-        pr.total_vulnerabilities += (analysis.total_vulnerabilities || 0)
+        const pr = prMap.get(prKey);
+        pr.files_count++;
+        pr.total_vulnerabilities += (analysis.total_vulnerabilities || 0);
 
-        const counts = analysis.severity_counts || {}
-        pr.severity_counts.critical += (counts.critical || 0)
-        pr.severity_counts.high += (counts.high || 0)
-        pr.severity_counts.medium += (counts.medium || 0)
-        pr.severity_counts.low += (counts.low || 0)
-      })
+        const counts = analysis.severity_counts || {};
+        pr.severity_counts.critical += (counts.critical || 0);
+        pr.severity_counts.high += (counts.high || 0);
+        pr.severity_counts.medium += (counts.medium || 0);
+        pr.severity_counts.low += (counts.low || 0);
+      });
 
       const groupedPRs = Array.from(prMap.values())
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 20)
+        .slice(0, 10); // Display the top 10 most recent PRs
 
-      setAnalyses(groupedPRs)
+      setAnalyses(groupedPRs);
+      updateStats(groupedPRs);
 
-      // Calculate overall stats
-      const totalStats = groupedPRs.reduce((acc, pr) => ({
-        critical: acc.critical + pr.severity_counts.critical,
-        high: acc.high + pr.severity_counts.high,
-        medium: acc.medium + pr.severity_counts.medium,
-        low: acc.low + pr.severity_counts.low,
-        total: acc.total + pr.total_vulnerabilities
-      }), { critical: 0, high: 0, medium: 0, low: 0, total: 0 })
+      // Cache the new results
+      try {
+        localStorage.setItem('prAnalysesCache', JSON.stringify(groupedPRs));
+      } catch (e) {
+        console.error('Failed to cache analyses:', e);
+      }
 
-      setStats(totalStats)
     } catch (error) {
-      console.error('Failed to fetch analyses:', error)
+      console.error('Failed to fetch analyses:', error);
     } finally {
-      setLoading(false)
+      if (!isBackgroundFetch) {
+        setLoading(false);
+      }
     }
-  }
+  };
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
