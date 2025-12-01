@@ -211,7 +211,7 @@ Example of correct format:
             print(f"❌ Gemini API Error: {str(e)}")
             import gc
             gc.collect()
-            return self._mock_analysis(code, language)
+            raise e
     
     def _mock_analysis(self, code: str, language: str) -> Dict:
         """
