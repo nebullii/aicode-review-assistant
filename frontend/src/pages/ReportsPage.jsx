@@ -4,51 +4,22 @@ import { reportsAPI, repositoryAPI } from '../services/api';
 // Lazy load modal for better performance
 const PRAnalysisModal = lazy(() => import('../components/PRAnalysisModal'));
 
-const REPORTS_CACHE_KEY = 'reports_cache';
-const REPOS_CACHE_KEY = 'repositories_cache';
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes for reports (more dynamic data)
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes for reports
+
+const getCacheKey = (page, repo, status) => {
+  // Use a stable key for the main, unfiltered view
+  if (page === 1 && !repo && !status) {
+    return 'reports_cache_main';
+  }
+  // Create a dynamic key for filtered or paginated views
+  return `reports_cache_page_${page}_repo_${repo || 'all'}_status_${status || 'all'}`;
+};
 
 const ReportsPage = () => {
-  const [analyses, setAnalyses] = useState(() => {
-    const cached = localStorage.getItem(REPORTS_CACHE_KEY);
-    if (cached) {
-      try {
-        const { analyses, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_DURATION) {
-          return analyses;
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
-
-  const [repositories, setRepositories] = useState(() => {
-    const cached = localStorage.getItem(REPOS_CACHE_KEY);
-    if (cached) {
-      try {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_DURATION) {
-          return data;
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
-
-  const [summary, setSummary] = useState(() => {
-    const cached = localStorage.getItem(REPORTS_CACHE_KEY);
-    if (cached) {
-      try {
-        const { summary, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_DURATION) {
-          return summary;
-        }
-      } catch (e) {}
-    }
-    return null;
-  });
-
-  const [loading, setLoading] = useState(false);
+  const [analyses, setAnalyses] = useState([]);
+  const [repositories, setRepositories] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -63,39 +34,54 @@ const ReportsPage = () => {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    // Check if we have valid cache for unfiltered view (page 1 only)
-    if (!selectedRepo && !selectedStatus && currentPage === 1) {
-      const cached = localStorage.getItem(REPORTS_CACHE_KEY);
-      if (cached) {
-        try {
-          const { timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < CACHE_DURATION) {
-            // Cache is valid, skip fetch
-            return;
-          }
-        } catch (e) {}
+    const cacheKey = getCacheKey(currentPage, selectedRepo, selectedStatus);
+    const cached = localStorage.getItem(cacheKey);
+
+    let hasDisplayedCached = false;
+
+    if (cached) {
+      try {
+        const { data, timestamp, total, repos, summaryData } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setAnalyses(data);
+          setTotalCount(total);
+          if (repos) setRepositories(repos);
+          if (summaryData) setSummary(summaryData);
+          setLoading(false);
+          hasDisplayedCached = true;
+        }
+      } catch (e) {
+        console.error("Failed to parse cache:", e);
+        localStorage.removeItem(cacheKey); // Clear corrupted cache
       }
     }
-    // No valid cache or filters applied, fetch
-    fetchData();
+    
+    // Always fetch fresh data, either to initially populate or to update displayed cache
+    fetchData(hasDisplayedCached);
   }, [selectedRepo, selectedStatus, currentPage]);
 
-  const fetchData = async () => {
-    try {
+  const fetchData = async (isBackgroundFetch = false) => {
+    if (!isBackgroundFetch) {
       setLoading(true);
-      setError(null);
+    }
+    setError(null);
+    
+    const cacheKey = getCacheKey(currentPage, selectedRepo, selectedStatus);
 
+    try {
       // Fetch analyses with filters and pagination
-      const filters = {};
+      const filters = {
+        limit: itemsPerPage,
+        offset: (currentPage - 1) * itemsPerPage
+      };
       if (selectedRepo) filters.repository_id = selectedRepo;
       if (selectedStatus) filters.status = selectedStatus;
-      filters.limit = itemsPerPage;
-      filters.offset = (currentPage - 1) * itemsPerPage;
 
+      // Use Promise.all to fetch data concurrently
       const [analysesData, summaryData, reposData] = await Promise.all([
         reportsAPI.getPRAnalyses(filters),
-        reportsAPI.getSummary(),
-        repositoryAPI.getRepositories()
+        reportsAPI.getSummary(), // Summary might not need to be fetched every time, but is quick
+        repositoryAPI.getRepositories() // Same for repos
       ]);
 
       setAnalyses(analysesData.analyses);
@@ -103,25 +89,22 @@ const ReportsPage = () => {
       setSummary(summaryData.summary);
       setRepositories(reposData.repositories);
 
-      // Cache only if no filters are applied
-      if (!selectedRepo && !selectedStatus) {
-        localStorage.setItem(REPORTS_CACHE_KEY, JSON.stringify({
-          analyses: analysesData.analyses,
-          summary: summaryData.summary,
-          timestamp: Date.now()
-        }));
-      }
-
-      // Always cache repositories
-      localStorage.setItem(REPOS_CACHE_KEY, JSON.stringify({
-        data: reposData.repositories,
+      // Cache the fetched data
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: analysesData.analyses,
+        total: analysesData.total || 0,
+        repos: reposData.repositories,
+        summaryData: summaryData.summary,
         timestamp: Date.now()
       }));
+
     } catch (err) {
       console.error('Failed to fetch reports:', err);
       setError('Failed to load reports. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isBackgroundFetch) {
+        setLoading(false);
+      }
     }
   };
 
