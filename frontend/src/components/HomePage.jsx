@@ -66,7 +66,9 @@ const HomePage = () => {
                 </svg>
               </button>
               <a
-                href="#how-it-works-heading"
+                href="https://www.youtube.com/watch?v=ygxZAEhTOJc"
+                target="_blank"
+                rel="noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-slate-700 bg-white rounded-xl hover:bg-slate-50 transition-all border-2 border-slate-200 hover:border-slate-300"
               >
                 See How It Works

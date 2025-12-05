@@ -12,6 +12,7 @@ const DashboardPage = () => {
     failed: 0,
     recent_7_days: 0
   })
+  const [demoEmbedReady, setDemoEmbedReady] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -135,19 +136,44 @@ const DashboardPage = () => {
 
           <div className="bg-gray-50 dark:bg-gray-900/40 border-t border-gray-200 dark:border-gray-700 md:border-t-0 md:border-l">
             <div className="p-4">
-              <div className="relative aspect-video rounded-lg overflow-hidden shadow-sm">
-                <iframe
-                  className="absolute inset-0 w-full h-full"
-                  src="https://www.youtube.com/embed/ygxZAEhTOJc?rel=0&modestbranding=1"
-                  title="Product demo"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  loading="lazy"
-                />
+              <div className="relative aspect-video min-h-[240px] rounded-lg overflow-hidden shadow-sm bg-black">
+                {!demoEmbedReady && (
+                  <button
+                    type="button"
+                    className="absolute inset-0 w-full h-full flex items-center justify-center group"
+                    onClick={() => setDemoEmbedReady(true)}
+                    aria-label="Play demo video"
+                  >
+                    <img
+                      src="https://img.youtube.com/vi/ygxZAEhTOJc/hqdefault.jpg"
+                      alt="Demo video preview"
+                      className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                      loading="lazy"
+                    />
+                    <div className="relative flex items-center gap-3 bg-white/90 text-gray-900 px-4 py-2 rounded-full shadow-lg border border-gray-200">
+                      <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.5 5.5a1 1 0 011.53-.848l6 4a1 1 0 010 1.696l-6 4A1 1 0 016.5 14.5v-8z" />
+                      </svg>
+                      <span className="text-sm font-semibold">Play demo</span>
+                    </div>
+                  </button>
+                )}
+
+                {demoEmbedReady && (
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    src="https://www.youtube.com/embed/ygxZAEhTOJc?rel=0&modestbranding=1"
+                    title="Product demo"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                )}
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>Streamed from YouTube to avoid large asset downloads</span>
-                <a href="https://www.youtube.com/watch?v=ygxZAEhTOJc" className="font-medium text-blue-600 dark:text-blue-400 hover:underline">Open in YouTube</a>
+                <span>Click to stream from YouTube; no large assets load until you play.</span>
+                <a href="https://www.youtube.com/watch?v=ygxZAEhTOJc" className="font-medium text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noreferrer">Open in YouTube</a>
               </div>
             </div>
           </div>
