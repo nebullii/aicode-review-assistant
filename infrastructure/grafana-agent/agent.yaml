@@ -1,0 +1,21 @@
+server:
+    log_level: info
+
+metrics:
+    wal_directory: /tmp/agent-wal
+    global:
+      scrape_interval: 15s
+    configs:
+      - name: render
+        scrape_configs:
+          - job_name: api-service
+            scheme: https
+            metrics_path: /metrics
+            static_configs:
+              - targets: ['${API_TARGET_HOST}']
+        remote_write:
+          - url: ${PROM_REMOTE_WRITE_URL}
+            basic_auth:
+              username: ${PROM_REMOTE_WRITE_USER}
+              password: ${PROM_REMOTE_WRITE_PASS}
+
