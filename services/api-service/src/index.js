@@ -31,11 +31,33 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const metricsRegister = new client.Registry();
 
+// Prometheus metrics: default system metrics + HTTP duration histogram
 client.collectDefaultMetrics({ register: metricsRegister });
+const httpRequestDurationSeconds = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'HTTP request duration in seconds',
+  labelNames: ['method', 'path', 'status'],
+  buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+});
+metricsRegister.registerMetric(httpRequestDurationSeconds);
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+// Record HTTP durations for RED metrics
+app.use((req, res, next) => {
+  const start = process.hrtime();
+  res.on('finish', () => {
+    const [s, ns] = process.hrtime(start);
+    const durationSeconds = s + ns / 1e9;
+    const path = req.route?.path || req.path || 'unknown';
+    httpRequestDurationSeconds
+      .labels(req.method, path, res.statusCode)
+      .observe(durationSeconds);
+  });
+  next();
+});
 
 // Prometheus metrics
 app.get('/metrics', async (_req, res) => {
