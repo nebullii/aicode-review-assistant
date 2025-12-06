@@ -15,6 +15,16 @@ metrics:
             static_configs:
               # API_TARGET_HOST should be host (and optional port) only, no path.
               - targets: ['${API_TARGET_HOST}']
+          - job_name: github-service
+            scheme: https
+            metrics_path: ${GITHUB_METRICS_PATH:-/metrics}
+            static_configs:
+              - targets: ['${GITHUB_TARGET_HOST}']
+          - job_name: analysis-service
+            scheme: https
+            metrics_path: ${ANALYSIS_METRICS_PATH:-/metrics}
+            static_configs:
+              - targets: ['${ANALYSIS_TARGET_HOST}']
         remote_write:
           - url: ${PROM_REMOTE_WRITE_URL}
             basic_auth:
