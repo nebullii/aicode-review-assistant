@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const client = require('prom-client');
 const { pool } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const repositoryRoutes = require('./routes/repositories');
@@ -28,10 +29,23 @@ console.log('✓ All required environment variables are set');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const metricsRegister = new client.Registry();
+
+client.collectDefaultMetrics({ register: metricsRegister });
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+// Prometheus metrics
+app.get('/metrics', async (_req, res) => {
+  try {
+    res.set('Content-Type', metricsRegister.contentType);
+    res.end(await metricsRegister.metrics());
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
 
 // Mount auth routes
 app.use('/auth', authRoutes);
