@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const client = require('prom-client');
 const webhookRoutes = require('./routes/webhooks');
 require('dotenv').config();
 
@@ -22,6 +23,17 @@ console.log('✓ All required environment variables are set');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+const metricsRegister = new client.Registry();
+
+// Prometheus metrics: default system metrics + HTTP duration histogram
+client.collectDefaultMetrics({ register: metricsRegister });
+const httpRequestDurationSeconds = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'HTTP request duration in seconds',
+  labelNames: ['method', 'path', 'status'],
+  buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+});
+metricsRegister.registerMetric(httpRequestDurationSeconds);
 
 app.use(helmet());
 app.use(cors());
@@ -33,6 +45,30 @@ app.use((req, res, next) => {
     next(); // Let webhook route handle raw body
   } else {
     express.json()(req, res, next);
+  }
+});
+
+// Record HTTP durations for RED metrics
+app.use((req, res, next) => {
+  const start = process.hrtime();
+  res.on('finish', () => {
+    const [s, ns] = process.hrtime(start);
+    const durationSeconds = s + ns / 1e9;
+    const path = req.route?.path || req.path || 'unknown';
+    httpRequestDurationSeconds
+      .labels(req.method, path, res.statusCode)
+      .observe(durationSeconds);
+  });
+  next();
+});
+
+// Metrics endpoint (kept open for Grafana Agent scrapes)
+app.get('/metrics', async (_req, res) => {
+  try {
+    res.set('Content-Type', metricsRegister.contentType);
+    res.end(await metricsRegister.metrics());
+  } catch (error) {
+    res.status(500).send(error.message);
   }
 });
 

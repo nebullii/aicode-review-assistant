@@ -42,6 +42,17 @@ Microservices-based AI code review automation platform that integrates with GitH
 - **MongoDB** - Port 27017 - Stores detailed analysis results
 - **Redis** - Port 6379 - Caching and session management
 
+## Observability
+- API service: Prometheus metrics at `/metrics` (prom-client defaults + HTTP latency histogram `http_request_duration_seconds`).
+- GitHub service: Prometheus metrics at `/metrics` (same histogram + defaults).
+- Analysis service: Prometheus metrics at `/metrics` via prometheus-client; HTTP histogram labels method/path/status_code.
+- Grafana Agent config: `infrastructure/grafana-agent/agent.yaml`; set:
+  - `API_TARGET_HOST` (host only, e.g., `api-service-m1g4.onrender.com`; add `:port` if non-443).
+  - Add additional scrape targets for GitHub/Analysis services in the agent config with their hosts/ports/metrics paths.
+  - `PROM_REMOTE_WRITE_URL`, `PROM_REMOTE_WRITE_USER`, `PROM_REMOTE_WRITE_PASS` for your Prometheus/Grafana Cloud endpoint.
+- Keep `/metrics` reachable for the agent (add a shared token/allowlist if needed).
+- Current baseline (wrk 2 threads/8 conns/30s on deployed API `/health`): p50 ~198ms, p75 ~210ms, p90 ~223ms, p99 ~464ms, 0% errors. Use as “before”; rerun after pooling/cache/DB tuning to show improvement.
+
 ## Prerequisites
 
 - Docker Desktop
