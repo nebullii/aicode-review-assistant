@@ -36,6 +36,18 @@ router.post('/register', async (req, res) => {
   const webhookUrl = `${process.env.WEBHOOK_URL}/webhooks/github`;
 
   try {
+    // Fetch repo metadata to get the stable GitHub repo ID
+    const repoResp = await axios.get(
+      `https://api.github.com/repos/${repository_full_name}`,
+      {
+        headers: {
+          Authorization: `Bearer ${github_token}`,
+          Accept: 'application/vnd.github+json',
+        },
+      }
+    );
+    const repoId = repoResp.data.id;
+
     // First, check if webhook already exists
     const existingHooksResponse = await axios.get(
       `https://api.github.com/repos/${repository_full_name}/hooks`,
@@ -54,6 +66,22 @@ router.post('/register', async (req, res) => {
 
     if (existingWebhook) {
       console.log(`Webhook already exists for ${repository_full_name}, returning existing ID: ${existingWebhook.id}`);
+      // Persist webhook details to DB if we have the repository row
+      try {
+        const update = await pool.query(
+          `UPDATE repositories
+           SET webhook_id = $1, webhook_url = $2, updated_at = NOW()
+           WHERE github_id = $3
+           RETURNING id`,
+          [existingWebhook.id, existingWebhook.config.url, repoId]
+        );
+        if (update.rowCount === 0) {
+          console.warn(`[WARN] Repo not found for github_id=${repoId} when updating webhook_id`);
+        }
+      } catch (dbErr) {
+        console.error('[ERROR] Failed to persist existing webhook_id:', dbErr.message);
+      }
+
       return res.json({
         success: true,
         webhook_id: existingWebhook.id,
@@ -93,6 +121,22 @@ router.post('/register', async (req, res) => {
 
     const webhook = webhookResponse.data;
     console.log(`New webhook created for ${repository_full_name}, ID: ${webhook.id}`);
+
+    // Persist webhook details to DB if we have the repository row
+    try {
+      const update = await pool.query(
+        `UPDATE repositories
+         SET webhook_id = $1, webhook_url = $2, updated_at = NOW()
+         WHERE github_id = $3
+         RETURNING id`,
+        [webhook.id, webhook.config.url, repoId]
+      );
+      if (update.rowCount === 0) {
+        console.warn(`[WARN] Repo not found for github_id=${repoId} when updating webhook_id`);
+      }
+    } catch (dbErr) {
+      console.error('[ERROR] Failed to persist webhook_id:', dbErr.message);
+    }
 
     res.json({
       success: true,
