@@ -238,29 +238,40 @@ class WebhookController {
         console.error('[EMAIL] Failed to send notifications (PR analysis still succeeded):', error.message);
       }
 
-      // Post completion comment for large PRs
-      if (pythonFiles.length > 3) {
-        try {
-          const completionComment = `## ✅ CodeSentry Analysis Complete\n\n` +
-            `Analyzed ${pythonFiles.length} Python ${pythonFiles.length === 1 ? 'file' : 'files'}\n\n` +
-            `**Summary:**\n` +
-            `- 🔴 Critical/High Issues: ${allVulnerabilities.filter(v => v.severity === 'critical' || v.severity === 'high').length}\n` +
-            `- 📊 Total Security Findings: ${allVulnerabilities.length}\n` +
-            `- 💎 Code Quality Suggestions: ${allStyleIssues.length}\n\n` +
-            `${allVulnerabilities.filter(v => v.severity === 'critical' || v.severity === 'high').length > 0 ? '⚠️ Please review the critical/high severity issues posted above.' : '✨ No critical or high severity issues found!'}\n\n` +
-            `<sub>Powered by **CodeSentry**</sub>`;
+      // Always post a final summary comment so PR shows status (even if clean)
+      const highCount = allVulnerabilities.filter(
+        v => v.severity === 'critical' || v.severity === 'high'
+      ).length;
+      const totalVulns = allVulnerabilities.length;
+      const totalStyle = allStyleIssues.length;
+      const clean = totalVulns === 0;
 
-          await githubCommentService.postSummaryComment(
-            repository.owner.login,
-            repository.name,
-            pr.number,
-            completionComment,
-            githubToken
-          );
-          console.log('[PROGRESS] Posted completion summary');
-        } catch (error) {
-          console.error('[WARN] Failed to post completion comment:', error.message);
-        }
+      const completionComment = clean
+        ? `CodeSentry Analysis Complete ✅\n\n` +
+          `Analyzed ${pythonFiles.length} Python ${pythonFiles.length === 1 ? 'file' : 'files'}.\n\n` +
+          `No security vulnerabilities detected in this PR.\n` +
+          (totalStyle > 0 ? `Code quality suggestions: ${totalStyle}\n\n` : `\n`) +
+          `<sub>Powered by CodeSentry</sub>`
+        : `CodeSentry Analysis Complete ✅\n\n` +
+          `Analyzed ${pythonFiles.length} Python ${pythonFiles.length === 1 ? 'file' : 'files'}\n\n` +
+          `Summary:\n` +
+          `- ⚠️ Critical/High Issues: ${highCount}\n` +
+          `- 🔎 Total Security Findings: ${totalVulns}\n` +
+          `- 🛠️ Code Quality Suggestions: ${totalStyle}\n\n` +
+          `${highCount > 0 ? 'Please review the critical/high severity issues posted above.' : 'No critical or high severity issues found.'}\n\n` +
+          `<sub>Powered by CodeSentry</sub>`;
+
+      try {
+        await githubCommentService.postSummaryComment(
+          repository.owner.login,
+          repository.name,
+          pr.number,
+          completionComment,
+          githubToken
+        );
+        console.log('[PROGRESS] Posted final summary');
+      } catch (error) {
+        console.error('[WARN] Failed to post final summary comment:', error.message);
       }
 
       console.log(`\n[COMPLETE] PR analysis complete for #${pr.number}\n`);
