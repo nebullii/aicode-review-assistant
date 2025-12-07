@@ -4,6 +4,65 @@ const { pool } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
+const GITHUB_SERVICE_URL = process.env.GITHUB_SERVICE_URL || 'http://localhost:3002';
+
+async function retryWebhooksForUser(userId) {
+  const userResult = await pool.query(
+    'SELECT github_token FROM users WHERE id = $1',
+    [userId]
+  );
+  if (userResult.rows.length === 0) {
+    throw new Error('User not found for webhook retry');
+  }
+  const githubToken = userResult.rows[0].github_token;
+  if (!githubToken) {
+    throw new Error('No GitHub token available; user must re-auth');
+  }
+
+  const repoResult = await pool.query(
+    'SELECT id, full_name FROM repositories WHERE user_id = $1 AND webhook_id IS NULL',
+    [userId]
+  );
+
+  const successes = [];
+  const failures = [];
+
+  for (const repo of repoResult.rows) {
+    try {
+      const resp = await axios.post(
+        `${GITHUB_SERVICE_URL}/webhooks/register`,
+        {
+          repository_full_name: repo.full_name,
+          github_token: githubToken,
+        }
+      );
+      const webhookId = resp.data?.webhook_id;
+      const tokenInvalid = resp.data?.token_invalid;
+
+      if (webhookId) {
+        await pool.query(
+          'UPDATE repositories SET webhook_id = $1, updated_at = NOW() WHERE id = $2',
+          [webhookId, repo.id]
+        );
+        successes.push({ repo: repo.full_name, webhook_id: webhookId });
+      } else {
+        failures.push({
+          repo: repo.full_name,
+          reason: tokenInvalid ? 'token_invalid' : 'no_webhook_id_returned',
+        });
+      }
+    } catch (err) {
+      const status = err.response?.status;
+      const tokenInvalid = status === 401 || status === 403 || err.response?.data?.token_invalid;
+      failures.push({
+        repo: repo.full_name,
+        reason: tokenInvalid ? 'token_invalid' : err.response?.data?.message || err.message,
+      });
+    }
+  }
+
+  return { successes, failures };
+}
 
 // Get user's GitHub repositories (from local database)
 router.get('/', authenticateToken, async (req, res) => {
@@ -154,6 +213,7 @@ router.post('/connect', authenticateToken, async (req, res) => {
 
     // Register webhook with GitHub
     let webhookId = null;
+    let tokenInvalid = false;
     try {
       const GITHUB_SERVICE_URL = process.env.GITHUB_SERVICE_URL || 'http://localhost:3002';
       const webhookResponse = await axios.post(
@@ -164,8 +224,12 @@ router.post('/connect', authenticateToken, async (req, res) => {
         }
       );
       webhookId = webhookResponse.data.webhook_id;
+      tokenInvalid = webhookResponse.data.token_invalid;
       console.log(`Webhook registered for ${full_name}: ${webhookId}`);
     } catch (webhookError) {
+      if (webhookError.response?.data?.token_invalid) {
+        tokenInvalid = true;
+      }
       console.error('Webhook registration failed:', webhookError.response?.data || webhookError.message);
     }
 
@@ -175,7 +239,7 @@ router.post('/connect', authenticateToken, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, true, $6)
        ON CONFLICT (github_id) 
        DO UPDATE SET is_active = true, webhook_id = $6, updated_at = NOW()
-       RETURNING id, github_id, name, full_name, is_active, webhook_id`,
+      RETURNING id, github_id, name, full_name, is_active, webhook_id`,
       [req.user.user_id, github_id, name, full_name, description, webhookId]
     );
 
@@ -187,14 +251,35 @@ router.post('/connect', authenticateToken, async (req, res) => {
       success: true,
       message: webhookId
         ? 'Repository connected and webhook registered successfully'
-        : 'Repository connected successfully (webhook registration failed)',
+        : tokenInvalid
+          ? 'Repository connected; please reconnect GitHub to enable webhooks'
+          : 'Repository connected successfully (webhook registration failed)',
       repository: repository,
       webhook_registered: !!webhookId,
+      token_invalid: tokenInvalid,
     });
   } catch (error) {
     console.error('Error connecting repository:', error);
     res.status(500).json({
       error: 'Failed to connect repository',
+      details: error.message,
+    });
+  }
+});
+
+// Retry webhook registration for current user (fixes missing webhook_id after re-auth)
+router.post('/retry-webhooks', authenticateToken, async (req, res) => {
+  try {
+    const result = await retryWebhooksForUser(req.user.user_id);
+    res.json({
+      success: true,
+      retried: result.successes.length + result.failures.length,
+      successes: result.successes,
+      failures: result.failures,
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: 'Failed to retry webhooks',
       details: error.message,
     });
   }
@@ -293,4 +378,6 @@ router.post('/disconnect', authenticateToken, async (req, res) => {
   }
 });
 
+// Export router plus helper for reuse in auth flow
+router.retryWebhooksForUser = retryWebhooksForUser;
 module.exports = router;

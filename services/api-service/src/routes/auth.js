@@ -2,10 +2,15 @@ const express = require('express');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+const repositoriesRouter = require('./repositories');
+const retryWebhooksForUser = repositoriesRouter.retryWebhooksForUser;
 
 const router = express.Router();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
+const GITHUB_SERVICE_URL = process.env.GITHUB_SERVICE_URL || 'http://localhost:3002';
+
+// This is replaced by retryWebhooksForUser in repositories routes to avoid duplication.
 
 // Step 1: Redirect user to GitHub OAuth
 router.get('/github', (req, res) => {
@@ -85,6 +90,17 @@ router.get('/github/callback', async (req, res) => {
     );
 
     const user = result.rows[0];
+
+    // Background retry for missing webhooks with fresh token
+    retryWebhooksForUser(user.id)
+      .then(result => {
+        if (result.failures.length) {
+          console.warn('[webhook retry] failures:', result.failures);
+        }
+      })
+      .catch(err => {
+        console.error('[webhook retry] background error:', err.message);
+      });
 
     // Generate JWT token
     const token = jwt.sign(

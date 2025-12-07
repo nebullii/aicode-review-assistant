@@ -70,10 +70,10 @@ router.post('/register', async (req, res) => {
       try {
         const update = await pool.query(
           `UPDATE repositories
-           SET webhook_id = $1, webhook_url = $2, updated_at = NOW()
-           WHERE github_id = $3
+           SET webhook_id = $1, updated_at = NOW()
+           WHERE github_id = $2
            RETURNING id`,
-          [existingWebhook.id, existingWebhook.config.url, repoId]
+          [existingWebhook.id, repoId]
         );
         if (update.rowCount === 0) {
           console.warn(`[WARN] Repo not found for github_id=${repoId} when updating webhook_id`);
@@ -126,10 +126,10 @@ router.post('/register', async (req, res) => {
     try {
       const update = await pool.query(
         `UPDATE repositories
-         SET webhook_id = $1, webhook_url = $2, updated_at = NOW()
-         WHERE github_id = $3
+         SET webhook_id = $1, updated_at = NOW()
+         WHERE github_id = $2
          RETURNING id`,
-        [webhook.id, webhook.config.url, repoId]
+        [webhook.id, repoId]
       );
       if (update.rowCount === 0) {
         console.warn(`[WARN] Repo not found for github_id=${repoId} when updating webhook_id`);
@@ -146,12 +146,15 @@ router.post('/register', async (req, res) => {
       already_existed: false,
     });
   } catch (error) {
+    const status = error.response?.status;
+    const tokenInvalid = status === 401 || status === 403;
     console.error('Webhook registration error:', error.response?.data || error.message);
     console.error('Full error:', JSON.stringify(error.response?.data, null, 2));
-    res.status(error.response?.status || 500).json({
+    res.status(status || 500).json({
       error: 'Failed to register webhook',
       details: error.response?.data?.message || error.message,
-      errors: error.response?.data?.errors || []
+      errors: error.response?.data?.errors || [],
+      token_invalid: tokenInvalid,
     });
   }
 });
