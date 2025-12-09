@@ -135,7 +135,8 @@ router.post('/sync', authenticateToken, async (req, res) => {
       params: {
         sort: 'updated',
         per_page: 100,
-        affiliation: 'owner,collaborator',
+        // Include org membership so all accessible repos are synced
+        affiliation: 'owner,collaborator,organization_member',
       },
     });
 
@@ -143,35 +144,20 @@ router.post('/sync', authenticateToken, async (req, res) => {
     const githubRepos = response.data.filter((repo) => !repo.archived);
     let syncedCount = 0;
 
-    // Upsert each repository
+    // Upsert each repository per-user (allow same GitHub repo for multiple users)
     for (const repo of githubRepos) {
-      // Check if it exists
-      const existing = await pool.query(
-        'SELECT id, user_id FROM repositories WHERE github_id = $1',
-        [repo.id]
+      await pool.query(
+        `INSERT INTO repositories (user_id, github_id, name, full_name, description, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, false, NOW(), NOW())
+         ON CONFLICT (user_id, github_id)
+         DO UPDATE SET 
+           name = EXCLUDED.name,
+           full_name = EXCLUDED.full_name,
+           description = EXCLUDED.description,
+           updated_at = NOW()`,
+        [req.user.user_id, repo.id, repo.name, repo.full_name, repo.description]
       );
-
-      if (existing.rows.length > 0) {
-        // If it belongs to this user, update it
-        if (existing.rows[0].user_id === req.user.user_id) {
-          await pool.query(
-            `UPDATE repositories 
-             SET name = $1, full_name = $2, description = $3, updated_at = NOW()
-             WHERE id = $4`,
-            [repo.name, repo.full_name, repo.description, existing.rows[0].id]
-          );
-          syncedCount++;
-        }
-        // If it belongs to another user, skip it (enforced by unique constraint on github_id)
-      } else {
-        // Insert new repository (default is_active = false for sync)
-        await pool.query(
-          `INSERT INTO repositories (user_id, github_id, name, full_name, description, is_active, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, false, NOW(), NOW())`,
-          [req.user.user_id, repo.id, repo.name, repo.full_name, repo.description]
-        );
-        syncedCount++;
-      }
+      syncedCount++;
     }
 
     res.json({
@@ -247,7 +233,7 @@ router.post('/connect', authenticateToken, async (req, res) => {
     const repoResult = await pool.query(
       `INSERT INTO repositories (user_id, github_id, name, full_name, description, is_active, webhook_id)
        VALUES ($1, $2, $3, $4, $5, true, $6)
-       ON CONFLICT (github_id) 
+       ON CONFLICT (user_id, github_id) 
        DO UPDATE SET is_active = true, webhook_id = $6, updated_at = NOW()
       RETURNING id, github_id, name, full_name, is_active, webhook_id`,
       [req.user.user_id, github_id, name, full_name, description, webhookId]

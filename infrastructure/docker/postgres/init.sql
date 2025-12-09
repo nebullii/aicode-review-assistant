@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS repositories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  github_id INTEGER UNIQUE NOT NULL,
+  github_id INTEGER NOT NULL,
   name VARCHAR(200) NOT NULL,
   full_name VARCHAR(400) NOT NULL,
   description TEXT,
@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
+ALTER TABLE repositories DROP CONSTRAINT IF EXISTS repositories_github_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_repositories_user_repo ON repositories(user_id, github_id);
 CREATE INDEX IF NOT EXISTS idx_repositories_user_id ON repositories(user_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_repository_id ON analysis(repository_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_status ON analysis(status);
