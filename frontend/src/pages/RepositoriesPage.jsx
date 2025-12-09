@@ -23,6 +23,8 @@ const RepositoriesPage = () => {
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState(null)
+  const hasSynced = repositories.length > 0
+  const connectedCount = repositories.filter((r) => r.is_connected).length
 
   useEffect(() => {
     // Check if we have valid cache
@@ -104,24 +106,61 @@ const RepositoriesPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors space-y-4">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Your Repositories</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Connect Python repositories to enable AI-powered code reviews
+              3 steps to get CodeSentry comments on your PRs
             </p>
           </div>
-          <button
-            onClick={handleSync}
-            disabled={loading || syncing}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {syncing ? 'Syncing...' : 'Sync from GitHub'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-semibold text-gray-900 dark:text-white">{connectedCount}</span> connected •{' '}
+              <span className="font-semibold text-gray-900 dark:text-white">{repositories.length}</span> synced
+            </div>
+            <button
+              onClick={handleSync}
+              disabled={loading || syncing}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {syncing ? 'Syncing...' : 'Sync from GitHub'}
+            </button>
+          </div>
+        </div>
+
+        {/* Mini checklist */}
+        <div className="grid md:grid-cols-3 gap-3">
+          {[
+            {
+              title: 'Connect GitHub',
+              desc: 'You already signed in with GitHub.',
+              done: true
+            },
+            {
+              title: 'Sync repos',
+              desc: 'Pull your repo list from GitHub.',
+              done: hasSynced
+            },
+            {
+              title: 'Connect a repo',
+              desc: 'Enable webhooks so CodeSentry can comment.',
+              done: connectedCount > 0
+            }
+          ].map((step, idx) => (
+            <div key={step.title} className="flex items-start gap-3 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step.done ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>
+                {step.done ? '✓' : idx + 1}
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">{step.title}</div>
+                <p className="text-xs text-gray-600 dark:text-gray-400">{step.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -140,16 +179,31 @@ const RepositoriesPage = () => {
       {/* Repository List */}
       {!loading && repositories.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16 text-center transition-colors">
-          <div className="max-w-md mx-auto">
-            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto">
               <svg className="w-10 h-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Python repositories found</h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Make sure you have Python repositories in your GitHub account
-            </p>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Sync your repos to begin</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                1) Click “Sync from GitHub”  2) Hit “Connect” on the repo you want CodeSentry to watch.
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {syncing ? 'Syncing...' : 'Sync from GitHub'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">We only read PR metadata; no code changes are made.</p>
           </div>
         </div>
       ) : (
@@ -235,4 +289,3 @@ const RepositoriesPage = () => {
 }
 
 export default RepositoriesPage
-
