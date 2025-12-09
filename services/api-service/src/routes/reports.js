@@ -117,6 +117,16 @@ router.get('/pr-analyses', authenticateToken, async (req, res) => {
 router.get('/pr-analyses/:analysisId', authenticateToken, async (req, res) => {
   try {
     const { analysisId } = req.params;
+    const { scope = 'user' } = req.query;
+    const includeAll = scope === 'all';
+
+    const conditions = ['a.id = $1'];
+    const params = [analysisId];
+
+    if (!includeAll) {
+      conditions.push(`r.user_id = $${params.length + 1}`);
+      params.push(req.user.user_id);
+    }
 
     // Get analysis record from PostgreSQL
     const analysisResult = await pool.query(
@@ -133,8 +143,8 @@ router.get('/pr-analyses/:analysisId', authenticateToken, async (req, res) => {
         r.github_id as repository_github_id
       FROM analysis a
       JOIN repositories r ON a.repository_id = r.id
-      WHERE a.id = $1 AND r.user_id = $2`,
-      [analysisId]
+      WHERE ${conditions.join(' AND ')}`,
+      params
     );
 
     if (analysisResult.rows.length === 0) {
