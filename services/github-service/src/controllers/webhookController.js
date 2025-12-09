@@ -3,6 +3,7 @@ const analysisClient = require('../services/analysisClient');
 const githubCommentService = require('../services/githubCommentService');
 const commentFormatter = require('../utils/commentFormatter');
 const notificationService = require('../services/notificationService');
+const githubAppAuth = require('../services/githubAppAuth');
 const { Pool } = require('pg');
 
 // Database connection with secure SSL
@@ -65,8 +66,45 @@ class WebhookController {
       return;
     }
 
-    // Prefer bot/app token for posting comments so authorship shows as CodeSentry
-    const commentToken = process.env.GITHUB_BOT_TOKEN || githubToken;
+    // Prefer GitHub App or bot token for posting comments so authorship shows as CodeSentry
+    let commentToken = process.env.GITHUB_BOT_TOKEN || githubToken;
+    if (githubAppAuth.isConfigured()) {
+      try {
+        commentToken = await githubAppAuth.getInstallationToken();
+      } catch (appErr) {
+        console.warn(`[WARN] GitHub App token generation failed: ${appErr.message}; falling back to bot/user token`);
+      }
+    }
+
+    const owner = repository.owner.login;
+    const repoName = repository.name;
+
+    // Helper to post a summary comment with fallback to the user token if the bot/app lacks access
+    const postSummaryWithFallback = async (body) => {
+      try {
+        return await githubCommentService.postSummaryComment(
+          owner,
+          repoName,
+          pr.number,
+          body,
+          commentToken
+        );
+      } catch (error) {
+        const status = error.response?.status;
+        const shouldFallback = commentToken !== githubToken && [401, 403, 404].includes(status);
+        if (shouldFallback) {
+          console.warn(`[WARN] Bot/App token failed to post comment (status ${status}); retrying with user token`);
+          return githubCommentService.postSummaryComment(
+            owner,
+            repoName,
+            pr.number,
+            body,
+            githubToken
+          );
+        }
+        throw error;
+      }
+    };
 
     console.log(`\n[START] Starting analysis for PR #${pr.number} in ${repository.full_name}`);
 
@@ -87,13 +125,7 @@ class WebhookController {
             `This may take a few minutes. We'll post findings as we discover them.\n\n` +
             `<sub>Powered by **CodeSentry**</sub>`;
 
-          await githubCommentService.postSummaryComment(
-            repository.owner.login,
-            repository.name,
-            pr.number,
-            progressComment,
-            commentToken
-          );
+          await postSummaryWithFallback(progressComment);
           console.log(`[PROGRESS] Posted initial comment for ${pythonFiles.length} files`);
         } catch (error) {
           console.error('[WARN] Failed to post progress comment:', error.message);
@@ -145,17 +177,11 @@ class WebhookController {
                 );
 
                 if (batchedComment) {
-                  await githubCommentService.postSummaryComment(
-                  repository.owner.login,
-                  repository.name,
-                  pr.number,
-                  batchedComment,
-                  commentToken
-                );
+                  await postSummaryWithFallback(batchedComment);
 
-                console.log(`  [SECURITY] Posted comment with ${vulnsToPost.length} issues to GitHub`);
-              }
-            } catch (error) {
+                  console.log(`  [SECURITY] Posted comment with ${vulnsToPost.length} issues to GitHub`);
+                }
+              } catch (error) {
                 console.error(`  [WARN] Failed to post batched security comment:`, error.message);
               }
             } else {
@@ -265,13 +291,7 @@ class WebhookController {
           `<sub>Powered by CodeSentry</sub>`;
 
       try {
-        await githubCommentService.postSummaryComment(
-          repository.owner.login,
-          repository.name,
-          pr.number,
-          completionComment,
-          commentToken
-        );
+        await postSummaryWithFallback(completionComment);
         console.log('[PROGRESS] Posted final summary');
       } catch (error) {
         console.error('[WARN] Failed to post final summary comment:', error.message);
