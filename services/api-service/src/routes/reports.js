@@ -6,10 +6,11 @@ const { DEFAULT_SEVERITY_COUNTS, DEFAULT_STYLE_CATEGORIES } = require('../consta
 
 const router = express.Router();
 
-// Get all PR analysis reports for the authenticated user
+// Get all PR analysis reports
 router.get('/pr-analyses', authenticateToken, async (req, res) => {
   try {
-    const { repository_id, status, limit = 50, offset = 0 } = req.query;
+    const { repository_id, status, limit = 50, offset = 0, scope = 'user' } = req.query;
+    const includeAll = scope === 'all';
 
     // Validate repository_id is a valid UUID format if provided
     if (repository_id) {
@@ -23,6 +24,24 @@ router.get('/pr-analyses', authenticateToken, async (req, res) => {
     }
 
     // Build dynamic query
+    const conditions = [];
+    const queryParams = [];
+
+    if (!includeAll) {
+      conditions.push(`r.user_id = $${queryParams.length + 1}`);
+      queryParams.push(req.user.user_id);
+    }
+
+    if (repository_id) {
+      conditions.push(`r.id = $${queryParams.length + 1}`);
+      queryParams.push(repository_id);
+    }
+
+    if (status) {
+      conditions.push(`a.status = $${queryParams.length + 1}`);
+      queryParams.push(status);
+    }
+
     let query = `
       SELECT
         a.id,
@@ -37,26 +56,13 @@ router.get('/pr-analyses', authenticateToken, async (req, res) => {
         r.name as repo_short_name
       FROM analysis a
       JOIN repositories r ON a.repository_id = r.id
-      WHERE r.user_id = $1
     `;
 
-    const queryParams = [req.user.user_id];
-    let paramIndex = 2;
-
-    // Add optional filters
-    if (repository_id) {
-      query += ` AND r.id = $${paramIndex}`;
-      queryParams.push(repository_id);
-      paramIndex++;
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
-    if (status) {
-      query += ` AND a.status = $${paramIndex}`;
-      queryParams.push(status);
-      paramIndex++;
-    }
-
-    query += ` ORDER BY a.started_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` ORDER BY a.started_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(parseInt(limit), parseInt(offset));
 
     const result = await pool.query(query, queryParams);
@@ -66,20 +72,27 @@ router.get('/pr-analyses', authenticateToken, async (req, res) => {
       SELECT COUNT(*) as total
       FROM analysis a
       JOIN repositories r ON a.repository_id = r.id
-      WHERE r.user_id = $1
     `;
-    const countParams = [req.user.user_id];
-    let countParamIndex = 2;
+    const countParams = [];
+    const countConditions = [];
+
+    if (!includeAll) {
+      countConditions.push(`r.user_id = $${countParams.length + 1}`);
+      countParams.push(req.user.user_id);
+    }
 
     if (repository_id) {
-      countQuery += ` AND r.id = $${countParamIndex}`;
+      countConditions.push(`r.id = $${countParams.length + 1}`);
       countParams.push(repository_id);
-      countParamIndex++;
     }
 
     if (status) {
-      countQuery += ` AND a.status = $${countParamIndex}`;
+      countConditions.push(`a.status = $${countParams.length + 1}`);
       countParams.push(status);
+    }
+
+    if (countConditions.length > 0) {
+      countQuery += ` WHERE ${countConditions.join(' AND ')}`;
     }
 
     const countResult = await pool.query(countQuery, countParams);
@@ -121,7 +134,7 @@ router.get('/pr-analyses/:analysisId', authenticateToken, async (req, res) => {
       FROM analysis a
       JOIN repositories r ON a.repository_id = r.id
       WHERE a.id = $1 AND r.user_id = $2`,
-      [analysisId, req.user.user_id]
+      [analysisId]
     );
 
     if (analysisResult.rows.length === 0) {
@@ -181,17 +194,32 @@ router.get('/pr-analyses/:analysisId', authenticateToken, async (req, res) => {
 router.get('/summary', authenticateToken, async (req, res) => {
   try {
     // Get all summary statistics in a single query using conditional aggregation
-    const result = await pool.query(
-      `SELECT
+    const { scope = 'user' } = req.query;
+    const includeAll = scope === 'all';
+
+    const conditions = [];
+    const params = [];
+
+    if (!includeAll) {
+      conditions.push(`r.user_id = $${params.length + 1}`);
+      params.push(req.user.user_id);
+    }
+
+    let summaryQuery = `
+      SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE a.status = 'completed') as completed,
         COUNT(*) FILTER (WHERE a.status = 'failed') as failed,
         COUNT(*) FILTER (WHERE a.started_at >= NOW() - INTERVAL '7 days') as recent
        FROM analysis a
        JOIN repositories r ON a.repository_id = r.id
-       WHERE r.user_id = $1`,
-      [req.user.user_id]
-    );
+    `;
+
+    if (conditions.length > 0) {
+      summaryQuery += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    const result = await pool.query(summaryQuery, params);
 
     const summary = result.rows[0];
 

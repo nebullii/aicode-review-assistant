@@ -64,14 +64,24 @@ async function retryWebhooksForUser(userId) {
   return { successes, failures };
 }
 
-// Get user's GitHub repositories (from local database)
+// Get GitHub repositories (supports all or current user scope)
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    const { scope = 'user' } = req.query;
+    const includeAll = scope === 'all';
+
     // Fetch repositories from database
-    const result = await pool.query(
-      'SELECT * FROM repositories WHERE user_id = $1 ORDER BY updated_at DESC',
-      [req.user.user_id]
-    );
+    let result;
+    if (includeAll) {
+      result = await pool.query(
+        'SELECT * FROM repositories ORDER BY updated_at DESC'
+      );
+    } else {
+      result = await pool.query(
+        'SELECT * FROM repositories WHERE user_id = $1 ORDER BY updated_at DESC',
+        [req.user.user_id]
+      );
+    }
 
     const repositories = result.rows.map((repo) => ({
       id: repo.id,
