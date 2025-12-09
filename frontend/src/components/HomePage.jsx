@@ -104,6 +104,85 @@ const HomePage = () => {
         </div>
       </main>
 
+      {/* Proof Section */}
+      <section className="py-16 bg-slate-50" aria-labelledby="proof-heading">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row gap-8 lg:items-center">
+            <div className="flex-1">
+              <h2 id="proof-heading" className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+                See What CodeSentry Posts on Your PRs
+              </h2>
+              <p className="text-lg text-slate-600 mb-6">
+                Every pull request gets an inline summary with severity badges, file-level findings, and a clear call to fix issues before merge.
+              </p>
+              <ul className="space-y-3 text-slate-700">
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-green-500"></span>
+                  Auto-sorted by Critical, High, Medium so reviewers know what to tackle first.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-blue-500"></span>
+                  Works on every PR—no dashboards to babysit. Fix in GitHub, ship with confidence.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-amber-500"></span>
+                  Powered by CodeSentry; you keep ownership of your repos and review flow.
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex-1">
+              <div className="bg-slate-900 text-slate-50 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
+                <div className="p-4 flex items-center justify-between border-b border-slate-800">
+                  <div className="font-semibold text-lg">Security Analysis</div>
+                  <div className="flex gap-2">
+                    <span className="px-3 py-1 rounded-full text-xs bg-slate-800 border border-slate-700">text.py</span>
+                  </div>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="flex flex-wrap gap-2 text-xs font-medium">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-900/30 text-red-300 border border-red-700">Critical 2</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-orange-900/30 text-orange-200 border border-orange-700">High 2</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-900/30 text-amber-200 border border-amber-700">Medium 1</span>
+                  </div>
+                  <div className="text-sm text-amber-100 flex items-start gap-2">
+                    <svg className="w-5 h-5 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 5a7 7 0 00-7 7v5a2 2 0 002 2h10a2 2 0 002-2v-5a7 7 0 00-7-7z" />
+                    </svg>
+                    Action required: 4 high-priority issues should be addressed before merging.
+                  </div>
+                  <div className="space-y-4 text-sm">
+                    <div>
+                      <div className="flex items-center gap-2 text-red-200 font-semibold">Critical Priority</div>
+                      <ul className="mt-2 space-y-1 text-slate-100">
+                        <li>• Unknown (Line 7)</li>
+                        <li>• Unknown (Line 16)</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 text-orange-200 font-semibold">High Priority</div>
+                      <ul className="mt-2 space-y-1 text-slate-100">
+                        <li>• Unknown (Line 11)</li>
+                        <li>• Unknown (Line 12)</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 text-amber-200 font-semibold">Medium Priority</div>
+                      <ul className="mt-2 space-y-1 text-slate-100">
+                        <li>• Unknown (Line 23)</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-slate-800 text-xs text-slate-400 flex items-center gap-2">
+                    Powered by <span className="font-semibold text-slate-200">CodeSentry</span> · Posts directly on your PRs
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-20 bg-white" aria-labelledby="features-heading">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -176,13 +255,13 @@ const HomePage = () => {
       <section className="py-20 bg-slate-50" aria-labelledby="how-it-works-heading">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 id="how-it-works-heading" className="text-4xl sm:text-5xl font-bold text-slate-900 mb-4">
-              Simple Integration
-            </h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Start improving your code quality in minutes
-            </p>
-          </div>
+              <h2 id="how-it-works-heading" className="text-4xl sm:text-5xl font-bold text-slate-900 mb-4">
+                Simple, 2-Minute Integration
+              </h2>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                Connect GitHub, pick a repo, and let CodeSentry post AI review comments on every PR.
+              </p>
+            </div>
 
           <div className="relative">
             {/* Connection line for desktop */}
@@ -198,7 +277,7 @@ const HomePage = () => {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900 mb-3">Connect</h3>
                   <p className="text-slate-600 leading-relaxed">
-                    Sign in with GitHub and authorize access to your repositories
+                    Sign in with GitHub, select the repos you want us to watch. No manual config.
                   </p>
                 </div>
               </div>
@@ -212,7 +291,7 @@ const HomePage = () => {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900 mb-3">Analyze</h3>
                   <p className="text-slate-600 leading-relaxed">
-                    Every PR gets automatically scanned for security and quality issues
+                    Every PR is scanned automatically; we sort findings by severity and link to the lines.
                   </p>
                 </div>
               </div>
@@ -226,7 +305,7 @@ const HomePage = () => {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900 mb-3">Improve</h3>
                   <p className="text-slate-600 leading-relaxed">
-                    Review detailed feedback and merge with confidence
+                    Review fixes directly in the PR thread. Merge only when you’re green.
                   </p>
                 </div>
               </div>
