@@ -65,6 +65,9 @@ class WebhookController {
       return;
     }
 
+    // Prefer bot/app token for posting comments so authorship shows as CodeSentry
+    const commentToken = process.env.GITHUB_BOT_TOKEN || githubToken;
+
     console.log(`\n[START] Starting analysis for PR #${pr.number} in ${repository.full_name}`);
 
     try {
@@ -89,7 +92,7 @@ class WebhookController {
             repository.name,
             pr.number,
             progressComment,
-            githubToken
+            commentToken
           );
           console.log(`[PROGRESS] Posted initial comment for ${pythonFiles.length} files`);
         } catch (error) {
@@ -143,16 +146,16 @@ class WebhookController {
 
                 if (batchedComment) {
                   await githubCommentService.postSummaryComment(
-                    repository.owner.login,
-                    repository.name,
-                    pr.number,
-                    batchedComment,
-                    githubToken
-                  );
+                  repository.owner.login,
+                  repository.name,
+                  pr.number,
+                  batchedComment,
+                  commentToken
+                );
 
-                  console.log(`  [SECURITY] Posted comment with ${vulnsToPost.length} issues to GitHub`);
-                }
-              } catch (error) {
+                console.log(`  [SECURITY] Posted comment with ${vulnsToPost.length} issues to GitHub`);
+              }
+            } catch (error) {
                 console.error(`  [WARN] Failed to post batched security comment:`, error.message);
               }
             } else {
@@ -267,7 +270,7 @@ class WebhookController {
           repository.name,
           pr.number,
           completionComment,
-          githubToken
+          commentToken
         );
         console.log('[PROGRESS] Posted final summary');
       } catch (error) {
