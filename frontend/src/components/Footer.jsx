@@ -1,3 +1,5 @@
+import Logo from './Logo'
+
 const Footer = ({ variant = 'landing' }) => {
   if (variant === 'dashboard') {
     return (
@@ -33,14 +35,7 @@ const Footer = ({ variant = 'landing' }) => {
         <div className="flex flex-col items-center gap-8">
           {/* Brand */}
           <div className="text-center">
-            <div className="flex items-center gap-2 justify-center mb-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-white">CodeSentry</span>
-            </div>
+            <Logo variant="dark" className="justify-center mb-3" />
             <p className="text-slate-400 text-sm max-w-md">
               AI-powered code analysis for Python projects
             </p>

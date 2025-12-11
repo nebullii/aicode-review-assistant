@@ -2,6 +2,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import Footer from './Footer'
+import Logo from './Logo'
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth()
@@ -38,13 +39,8 @@ const DashboardLayout = () => {
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 w-64 bg-[#1C2434] transition-colors">
         {/* Logo */}
-        <a href="/" className="flex items-center gap-2 h-16 px-6 border-b border-gray-700/50 hover:bg-gray-700/20 transition-colors">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold text-white">CodeSentry</span>
+        <a href="/" className="flex items-center h-16 px-6 border-b border-gray-700/50 hover:bg-gray-700/20 transition-colors">
+          <Logo variant="dark" />
         </a>
 
         {/* Navigation */}
@@ -137,4 +133,3 @@ const DashboardLayout = () => {
 }
 
 export default DashboardLayout
-
