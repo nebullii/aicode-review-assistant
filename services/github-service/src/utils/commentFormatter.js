@@ -327,6 +327,9 @@ class CommentFormatter {
       'Injection Flaw': 'Injection Flaw',
       'Insecure Dependency': 'Insecure Dependency',
       'Security Issue': 'Security Issue',
+      // Generic fallback
+      'unknown': 'Security Issue',
+      'Unknown': 'Security Issue',
     };
 
     return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
