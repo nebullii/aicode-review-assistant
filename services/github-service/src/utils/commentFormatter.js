@@ -74,16 +74,16 @@ class CommentFormatter {
         }
 
         // Context
-        const context = this.getSecurityContext(vuln.type, severity);
-        if (context) {
+        const impact = this.buildImpactText(vuln, severity);
+        if (impact) {
           comment += `**Impact:**\n`;
-          comment += `${context}\n\n`;
+          comment += `${impact}\n\n`;
         }
 
         // Recommendation (collapsible)
         comment += `<details>\n`;
         comment += `<summary><strong>💡 Recommended Solution</strong></summary>\n\n`;
-        comment += `${vuln.recommendation}\n\n`;
+        comment += `${this.buildRecommendationText(vuln, severity)}\n\n`;
         comment += `</details>\n\n`;
 
         // Confidence indicator
@@ -283,6 +283,54 @@ class CommentFormatter {
       low: 'Low Priority'
     };
     return labels[severity] || severity.charAt(0).toUpperCase() + severity.slice(1);
+  }
+
+  buildImpactText(vuln, severity) {
+    if (!vuln) return null;
+
+    // Prefer explicit impact if the analysis service provides it
+    if (vuln.impact) {
+      return vuln.impact;
+    }
+
+    const typeContext = this.getSecurityContext(vuln.type, severity);
+    const severityContext = this.getSeverityRiskNote(severity);
+
+    if (typeContext && severityContext) return `${typeContext} ${severityContext}`;
+    return typeContext || severityContext || null;
+  }
+
+  getSeverityRiskNote(severity) {
+    const notes = {
+      critical: 'Critical severity indicates high exploitability and should block the merge until fixed.',
+      high: 'High severity issue that could expose data or enable compromise if merged without a fix.',
+      medium: 'Medium severity risk; may be exploitable in certain scenarios and should be addressed soon.',
+      low: 'Low severity issue; fix to harden the codebase and prevent future regressions.'
+    };
+    return notes[severity] || null;
+  }
+
+  buildRecommendationText(vuln, severity) {
+    const steps = [];
+    if (vuln.recommendation) {
+      steps.push(vuln.recommendation);
+    }
+
+    const fixPriors = {
+      critical: 'Treat as merge-blocker. Patch immediately and add a regression test.',
+      high: 'Prioritize before release; add tests covering the vulnerable path.',
+      medium: 'Fix in the next sprint and cover with unit/integration tests.',
+      low: 'Plan a hardening fix; add lint/guardrails to prevent recurrence.'
+    };
+
+    const pri = fixPriors[severity];
+    if (pri) steps.push(`**Priority:** ${pri}`);
+
+    if (steps.length === 0) {
+      return 'Review this area and apply a fix before merging.';
+    }
+
+    return steps.join('\n\n');
   }
 
   formatVulnTypeHuman(type) {
