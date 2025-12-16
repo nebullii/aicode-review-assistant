@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const client = require('prom-client');
 const webhookRoutes = require('./routes/webhooks');
+const githubAppAuth = require('./services/githubAppAuth');
 require('dotenv').config();
 
 // Validate required environment variables
@@ -80,6 +81,18 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     service: 'github-service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// GitHub App health check to validate installation token works
+app.get('/health/github-app', async (_req, res) => {
+  const result = await githubAppAuth.healthCheck();
+  const status = result.ok ? 200 : 500;
+  res.status(status).json({
+    status: result.ok ? 'ok' : 'error',
+    service: 'github-service',
+    github_app: result,
     timestamp: new Date().toISOString()
   });
 });

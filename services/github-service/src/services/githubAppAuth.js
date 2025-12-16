@@ -51,18 +51,25 @@ async function getInstallationToken() {
 
   const url = `https://api.github.com/app/installations/${installationId}/access_tokens`;
 
-  const response = await axios.post(
-    url,
-    {},
-    {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-        Accept: 'application/vnd.github+json',
-      },
-    }
-  );
+  try {
+    const response = await axios.post(
+      url,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          Accept: 'application/vnd.github+json',
+        },
+      }
+    );
 
-  return response.data.token;
+    return response.data.token;
+  } catch (err) {
+    const status = err.response?.status;
+    const body = err.response?.data;
+    const detail = body ? JSON.stringify(body) : err.message;
+    throw new Error(`GitHub App token request failed (status ${status || 'unknown'}): ${detail}`);
+  }
 }
 
 function isConfigured() {
@@ -73,7 +80,21 @@ function isConfigured() {
   );
 }
 
+async function healthCheck() {
+  if (!isConfigured()) {
+    return { ok: false, error: 'Missing GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, or GITHUB_APP_PRIVATE_KEY' };
+  }
+
+  try {
+    const token = await getInstallationToken();
+    return { ok: true, tokenPreview: `${token.slice(0, 6)}...${token.slice(-4)}` };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   getInstallationToken,
   isConfigured,
+  healthCheck,
 };

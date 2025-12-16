@@ -67,13 +67,28 @@ class WebhookController {
     }
 
     // Prefer GitHub App or bot token for posting comments so authorship shows as CodeSentry
-    let commentToken = process.env.GITHUB_BOT_TOKEN || githubToken;
+    let commentToken = null;
+    let commentTokenSource = 'none';
+
     if (githubAppAuth.isConfigured()) {
       try {
         commentToken = await githubAppAuth.getInstallationToken();
+        commentTokenSource = 'github_app';
+        console.log('[AUTH] Using GitHub App installation token for comments');
       } catch (appErr) {
-        console.warn(`[WARN] GitHub App token generation failed: ${appErr.message}; falling back to bot/user token`);
+        console.warn(`[WARN] GitHub App token generation failed: ${appErr.message}`);
       }
+    }
+
+    // Fallback to bot token (PAT for CodeSentry bot) if provided
+    if (!commentToken && process.env.GITHUB_BOT_TOKEN) {
+      commentToken = process.env.GITHUB_BOT_TOKEN;
+      commentTokenSource = 'bot_token';
+      console.log('[AUTH] Using GITHUB_BOT_TOKEN for comments');
+    }
+
+    if (!commentToken) {
+      console.warn('[WARN] No app/bot token available; skipping GitHub comments to avoid posting as user.');
     }
 
     const owner = repository.owner.login;
@@ -81,6 +96,11 @@ class WebhookController {
 
     // Helper to post a summary comment with fallback to the user token if the bot/app lacks access
     const postSummaryWithFallback = async (body) => {
+      if (!commentToken) {
+        console.warn('[WARN] Skipping comment post because no app/bot token is configured');
+        return null;
+      }
+
       try {
         return await githubCommentService.postSummaryComment(
           owner,
@@ -91,17 +111,8 @@ class WebhookController {
         );
       } catch (error) {
         const status = error.response?.status;
-        const shouldFallback = commentToken !== githubToken && [401, 403, 404].includes(status);
-        if (shouldFallback) {
-          console.warn(`[WARN] Bot/App token failed to post comment (status ${status}); retrying with user token`);
-          return githubCommentService.postSummaryComment(
-            owner,
-            repoName,
-            pr.number,
-            body,
-            githubToken
-          );
-        }
+        const detail = error.response?.data || error.message;
+        console.error(`[ERROR] Failed to post summary comment with ${commentTokenSource} token (status ${status}):`, detail);
         throw error;
       }
     };
