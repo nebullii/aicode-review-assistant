@@ -96,9 +96,16 @@ class WebhookController {
 
     // Helper to post a summary comment with fallback to the user token if the bot/app lacks access
     const postSummaryWithFallback = async (body) => {
+      // If no app/bot token, try the user token so comments still post (last resort)
       if (!commentToken) {
-        console.warn('[WARN] Skipping comment post because no app/bot token is configured');
-        return null;
+        console.warn('[WARN] No app/bot token; posting with user token');
+        return githubCommentService.postSummaryComment(
+          owner,
+          repoName,
+          pr.number,
+          body,
+          githubToken
+        );
       }
 
       try {
@@ -113,6 +120,20 @@ class WebhookController {
         const status = error.response?.status;
         const detail = error.response?.data || error.message;
         console.error(`[ERROR] Failed to post summary comment with ${commentTokenSource} token (status ${status}):`, detail);
+
+        // Fallback to user token if auth issues with app/bot token
+        const shouldFallback = commentToken !== githubToken && [401, 403, 404].includes(status);
+        if (shouldFallback) {
+          console.warn(`[WARN] Retrying comment with user token due to status ${status}`);
+          return githubCommentService.postSummaryComment(
+            owner,
+            repoName,
+            pr.number,
+            body,
+            githubToken
+          );
+        }
+
         throw error;
       }
     };
